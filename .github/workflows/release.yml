@@ -1,0 +1,36 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Package zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item target/release/byok-stt.exe dist/
+          Copy-Item assets/app.ico dist/
+          Copy-Item README.md dist/
+          Copy-Item LICENSE dist/
+          Copy-Item scripts/add-start-menu-shortcut.ps1 dist/
+          Compress-Archive -Path dist/* -DestinationPath "byok-stt-${{ github.ref_name }}-windows-x64.zip" -Force
+
+      - name: Upload to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          files: byok-stt-*.zip
+          generate_release_notes: true

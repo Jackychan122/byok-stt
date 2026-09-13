@@ -1,9 +1,13 @@
 [package]
 name = "byok-stt"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Push-to-talk voice typing for Windows with any OpenAI-compatible STT provider (BYOK)"
 license = "MIT"
+build = "build.rs"
+
+[build-dependencies]
+winresource = "0.1"
 
 [dependencies]
 windows = { version = "0.58", features = [

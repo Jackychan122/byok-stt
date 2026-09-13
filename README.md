@@ -42,7 +42,20 @@ A small on-screen bubble appears only while recording (red) or transcribing
 Any other OpenAI-compatible service works too: choose **Custom** in Settings
 and fill in the base URL (e.g. `http://localhost:8080/v1` for a local server).
 
-## Install (from source)
+## Install
+
+### Option A: prebuilt binary (recommended)
+
+Grab `byok-stt-v*-windows-x64.zip` from the
+[Releases](https://github.com/Jackychan122/byok-stt/releases) page, unzip, and
+run `byok-stt.exe` — no Rust toolchain needed. Optional Start Menu entry
+(from inside the unzipped folder):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\add-start-menu-shortcut.ps1 -ExePath .\byok-stt.exe -IconPath .\app.ico
+```
+
+### Option B: build from source
 
 Prerequisites: [Rust](https://rustup.rs/) (MSVC toolchain) on Windows 10/11.
 
