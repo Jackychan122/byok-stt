@@ -3,6 +3,8 @@
 **/*.rs.bk
 
 # Local test artifacts
+cap/
+cap2/
 *.wav
 settings_check*.png
 ulw_render_check.png
