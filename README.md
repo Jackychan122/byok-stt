@@ -48,7 +48,8 @@ and fill in the base URL (e.g. `http://localhost:8080/v1` for a local server).
 
 Grab `byok-stt-v*-windows-x64.zip` from the
 [Releases](https://github.com/Jackychan122/byok-stt/releases) page, unzip, and
-run `byok-stt.exe` — no Rust toolchain needed. Optional Start Menu entry
+run `byok-stt.exe` — no installs, no runtimes, no Rust toolchain needed (the
+CRT is statically linked; works on a clean Windows 10/11). Optional Start Menu entry
 (from inside the unzipped folder):
 
 ```powershell

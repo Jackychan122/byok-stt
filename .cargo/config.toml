@@ -1,0 +1,5 @@
+# Statically link the CRT for MSVC release builds so the published exe has
+# zero external DLL dependencies (no VC++ Redistributable needed on the
+# user's machine). GNU (local) builds are unaffected.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
