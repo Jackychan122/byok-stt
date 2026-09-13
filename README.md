@@ -51,19 +51,22 @@ thing is a single ~1 MB executable.
 1. Download `byok-stt-v*-windows-x64.zip` from
    [**Releases**](https://github.com/Jackychan122/byok-stt/releases) and unzip it.
 2. Double-click **`byok-stt.exe`** — a microphone icon appears in the system tray.
-3. Right-click the tray icon → **Settings**.
+3. Right-click the tray icon → **Settings**:
+
+   <img src="docs/settings.png" width="466" alt="Settings window"/>
+
 4. Paste your API key, pick a provider and model → **Save**.
    (Get a key: [OpenRouter](https://openrouter.ai/keys) ·
    [OpenAI](https://platform.openai.com/api-keys) ·
    [Groq](https://console.groq.com/keys) ·
    [Gemini](https://aistudio.google.com/apikey) — any OpenAI-compatible
    endpoint works via **Custom**.)
-5. Hold **Ctrl+Win**, speak, release. ✨
+5. Hold **Ctrl+Win**, speak, release. ✨ The bubble shows the state at a
+   glance — gray while idle:
 
 <div align="center">
-<img src="docs/settings.png" width="466" alt="Settings window"/>
-&nbsp;&nbsp;
-<img src="docs/bubble-idle.png" width="106" alt="Idle bubble"/>
+<img src="docs/bubble-idle.png" width="106" alt="Idle bubble (gray)"/><br/>
+<i>The indicator bubble: gray while idle, red while recording, yellow while transcribing.</i>
 </div>
 
 ## Settings reference

@@ -47,19 +47,22 @@ Mistral、ElevenLabs，甚至你自架的端點。你只需帶上 API 金鑰，�
 1. 到 [**Releases**](https://github.com/Jackychan122/byok-stt/releases) 下載
    `byok-stt-v*-windows-x64.zip` 並解壓縮。
 2. Double-click **`byok-stt.exe`** — 系統列會出現麥克風圖示。
-3. 右鍵點托盤圖示 → **Settings**。
+3. 右鍵點托盤圖示 → **Settings**：
+
+   <img src="docs/settings.png" width="466" alt="設定視窗"/>
+
 4. 貼上你的 API key、選擇 Provider 與 Model → **Save**。
    （取得金鑰：[OpenRouter](https://openrouter.ai/keys) ·
    [OpenAI](https://platform.openai.com/api-keys) ·
    [Groq](https://console.groq.com/keys) ·
    [Gemini](https://aistudio.google.com/apikey) — 任何 OpenAI 相容端點都可
    選 **Custom** 自行填入網址。）
-5. 按住 **Ctrl+Win** 說話，放開 — 文字自動貼上 ✨
+5. 按住 **Ctrl+Win** 說話，放開 — 文字自動貼上 ✨ 氣泡會顯示目前狀態
+   （灰色＝閒置）：
 
 <div align="center">
-<img src="docs/settings.png" width="466" alt="設定視窗"/>
-&nbsp;&nbsp;
-<img src="docs/bubble-idle.png" width="106" alt="閒置氣泡"/>
+<img src="docs/bubble-idle.png" width="106" alt="閒置氣泡（灰色）"/><br/>
+<i>指示氣泡：灰色＝閒置、紅色＝錄音中、黃色＝轉寫中。</i>
 </div>
 
 ## 設定說明
