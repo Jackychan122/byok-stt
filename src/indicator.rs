@@ -22,8 +22,8 @@ use windows::Win32::UI::WindowsAndMessaging::{
     SetForegroundWindow, SetTimer, SetWindowPos, ShowWindow,
     TrackPopupMenu, UpdateLayeredWindow, HMENU, MENU_ITEM_FLAGS,
     SM_CXSCREEN, SM_CYSCREEN, SHOW_WINDOW_CMD, SW_HIDE, SW_SHOWNOACTIVATE, SWP_NOACTIVATE,
-    SWP_NOSIZE, SWP_NOZORDER, TPM_NONOTIFY, TPM_RETURNCMD, TPM_RIGHTBUTTON,
-    UPDATE_LAYERED_WINDOW_FLAGS, WINDOW_EX_STYLE, WINDOW_STYLE, WNDCLASSW,
+    SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, TPM_NONOTIFY, TPM_RETURNCMD, TPM_RIGHTBUTTON,
+    HWND_TOPMOST, UPDATE_LAYERED_WINDOW_FLAGS, WINDOW_EX_STYLE, WINDOW_STYLE, WNDCLASSW,
     WM_PAINT, WM_TIMER, WS_EX_LAYERED,
     WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
 };
@@ -45,6 +45,7 @@ static ALWAYS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::ne
 static ANGLE: AtomicUsize = AtomicUsize::new(0);
 static SIZE_PX: AtomicUsize = AtomicUsize::new(48);
 static MEM_DC: AtomicUsize = AtomicUsize::new(0);
+static ZTICK: AtomicUsize = AtomicUsize::new(0);
 static BITS: AtomicUsize = AtomicUsize::new(0);
 
 thread_local! {
@@ -173,9 +174,18 @@ fn show(color: usize) {
         return;
     }
     unsafe {
-        let _ = ShowWindow(
-            HWND(hwnd as *mut core::ffi::c_void),
-            SHOW_WINDOW_CMD(SW_SHOWNOACTIVATE.0),
+        let h = HWND(hwnd as *mut core::ffi::c_void);
+        let _ = ShowWindow(h, SHOW_WINDOW_CMD(SW_SHOWNOACTIVATE.0));
+        // Jump to the top of the TOPMOST band: shell flyouts (Start menu,
+        // search, IME) created later would otherwise cover the bubble.
+        let _ = SetWindowPos(
+            h,
+            Some(&HWND_TOPMOST),
+            0,
+            0,
+            0,
+            0,
+            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
         );
     }
 }
@@ -191,6 +201,25 @@ unsafe extern "system" fn ind_wnd_proc(
     }
     // Spinner animation clock (only spins while the busy bubble is shown).
     if msg == 0x0113 {
+        // Every ~2 s (60 ticks at 33 ms), re-assert TOPMOST so shell
+        // flyouts created later (Start menu, search, IME candidates) cannot
+        // silently cover the bubble while it stays visible.
+        if VISIBLE.load(Ordering::Relaxed) {
+            let tick = ZTICK.fetch_add(1, Ordering::Relaxed);
+            if tick % 60 == 0 {
+                unsafe {
+                    let _ = SetWindowPos(
+                        hwnd,
+                        Some(&HWND_TOPMOST),
+                        0,
+                        0,
+                        0,
+                        0,
+                        SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+                    );
+                }
+            }
+        }
         if VISIBLE.load(Ordering::Relaxed) && STATE.load(Ordering::Relaxed) == COLOR_BUSY {
             ANGLE.store((ANGLE.load(Ordering::Relaxed) + 12) % 360, Ordering::Relaxed);
             render();
