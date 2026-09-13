@@ -12,7 +12,11 @@ Hold the hotkey, speak, release — your words appear as text.
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)
 
-<img src="docs/demo-quickstart.gif" width="720" alt="byok-stt in action: hold the hotkey, the bubble turns red while recording, amber while transcribing, then the text appears in your editor"/>
+English | [繁體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md)
+
+<!-- 📹 demo GIF — uncomment once docs/demo-quickstart.gif exists
+<img src="docs/demo-quickstart.gif" width="720" alt="byok-stt in action"/>
+-->
 
 </div>
 
@@ -25,10 +29,6 @@ any OpenAI-compatible speech-to-text provider** — OpenRouter, OpenAI, Groq,
 Google Gemini, Mistral, ElevenLabs, or your own self-hosted endpoint. You bring
 the API key; the app does the rest. Audio never touches disk, and the whole
 thing is a single ~1 MB executable.
-
-<div align="center">
-<img src="docs/settings.png" width="466" alt="Settings window: provider, base URL, API key, model, hotkey, bubble and recording options"/>
-</div>
 
 ## Features
 
@@ -62,38 +62,6 @@ thing is a single ~1 MB executable.
    endpoint works via **Custom**.)
 5. Hold **Ctrl+Win**, speak, release. ✨
 
-<div align="center">
-<img src="docs/bubble-idle.png" width="560" alt="The bubble: gray while idle, red while recording, amber while transcribing"/>
-</div>
-
-## 繁體中文快速入門
-
-1. 到 [**Releases**](https://github.com/Jackychan122/byok-stt/releases) 下載
-   `byok-stt-v*-windows-x64.zip` 並解壓縮。
-2. Double-click **`byok-stt.exe`** — 系統列會出現麥克風圖示。
-3. 右鍵點托盤圖示 → **Settings**。
-4. 貼上你的 API key、選擇 Provider 與 Model → **Save**。
-   （任何 OpenAI 相容端點都可以，選 **Custom** 自行填入網址。）
-5. 按住 **Ctrl+Win** 說話，放開 — 文字會自動貼上 ✨
-
-- 氣泡：**灰色**＝閒置、**紅色**＝錄音中、**琥珀色**＝轉寫中
-- 氣泡或托盤圖示**左鍵**＝開始／停止錄音；**右鍵**＝設定選單
-- 氣泡可以拖曳移動位置，也可以在 Settings 勾選「常駐顯示」
-
-## 简体中文快速入门
-
-1. 到 [**Releases**](https://github.com/Jackychan122/byok-stt/releases) 下载
-   `byok-stt-v*-windows-x64.zip` 并解压。
-2. Double-click **`byok-stt.exe`** — 系统托盘会出现麦克风图标。
-3. 右键点击托盘图标 → **Settings**。
-4. 粘贴你的 API key、选择 Provider 和 Model → **Save**。
-   （任何 OpenAI 兼容端点都可以，选 **Custom** 自行填入网址。）
-5. 按住 **Ctrl+Win** 说话，松开 — 文字会自动粘贴 ✨
-
-- 气泡：**灰色**＝空闲、**红色**＝录音中、**琥珀色**＝转写中
-- 气泡或托盘图标**左键**＝开始／停止录音；**右键**＝设置菜单
-- 气泡可以拖动移动位置，也可以在 Settings 勾选「常驻显示」
-
 ## Settings reference
 
 | Setting | Default | Notes |
@@ -121,6 +89,18 @@ File-style models (`whisper`, `voxtral`, `*-transcribe`, `scribe`) are sent to
 `{base}/audio/transcriptions`; everything else goes through
 `{base}/chat/completions` with inline audio.
 
+## Usage
+
+| Action | Result |
+|---|---|
+| Hold the hotkey + speak | Recording starts (red bubble) |
+| Release keys | Transcribes (amber spinner) → pastes text |
+| Tray / bubble left-click | Start / stop recording |
+| Drag the bubble | Move it (position is remembered) |
+| Bubble right-click | Settings menu |
+| Tray icon right-click | Settings, Exit |
+| Launch while already running | Balloon reminder (single instance) |
+
 ## Install from source
 
 Prerequisites: [Rust](https://rustup.rs/) on Windows 10/11.
@@ -133,18 +113,6 @@ powershell -ExecutionPolicy Bypass -File scripts\install.ps1
 
 The script builds the release binary, installs it to `%LOCALAPPDATA%\byok-stt`
 and creates a Start Menu shortcut. No admin rights needed.
-
-## Usage
-
-| Action | Result |
-|---|---|
-| Hold the hotkey + speak | Recording starts (red bubble) |
-| Release keys | Transcribes (amber spinner) → pastes text |
-| Tray / bubble left-click | Start / stop recording |
-| Drag the bubble | Move it (position is remembered) |
-| Bubble right-click | Settings menu |
-| Tray icon right-click | Settings, Exit |
-| Launch while already running | Balloon reminder (single instance) |
 
 ## Platform support
 
