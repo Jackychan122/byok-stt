@@ -107,6 +107,19 @@ pub fn run() {
         indicator::init(hwnd);
         reload_settings();
 
+        // First-run onboarding: without an API key the app cannot do its
+        // one job, so surface Settings immediately instead of letting the
+        // user discover the error only after their first failed dictation.
+        if config::load().api_key.trim().is_empty() {
+            settings::open(hwnd);
+            balloon(
+                hwnd,
+                "Welcome to byok-stt",
+                "Paste your API key, pick a model and press Save to start dictating.",
+                false,
+            );
+        }
+
         let hook = SetWindowsHookExW(WH_KEYBOARD_LL, Some(hook_proc), HMODULE::default(), 0)
             .expect("install keyboard hook");
 
