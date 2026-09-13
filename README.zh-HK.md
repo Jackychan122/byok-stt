@@ -14,9 +14,7 @@
 
 [English](README.md) | 繁體中文 | [简体中文](README.zh-CN.md)
 
-<!-- 📹 示範 GIF — 製作好 docs/demo-quickstart.gif 後取消註解
-<img src="docs/demo-quickstart.gif" width="720" alt="byok-stt 操作示範"/>
--->
+<img src="docs/demo-quickstart.gif" width="383" alt="byok-stt 操作示範：轉寫時氣泡轉為黃色，完成後文字出現"/>
 
 </div>
 
@@ -36,7 +34,7 @@ Mistral、ElevenLabs，甚至你自架的端點。你只需帶上 API 金鑰，�
   `Ctrl+Space`（Linux），可完全自訂。
 - **任意服務提供商** — 內建 OpenRouter、OpenAI、Groq、Google Gemini、
   Mistral、ElevenLabs 預設，也可自行編輯 API 網址接上任何 OpenAI 相容端點。
-- **螢幕指示氣泡** — 只在錄音（紅色）或轉寫（琥珀色旋轉）時出現的小圓點。
+- **螢幕指示氣泡** — 只在錄音（紅色）或轉寫（黃色旋轉）時出現的小圓點。
   可拖曳移動、可設定常駐顯示；左鍵開始／停止錄音，右鍵開啟設定。
 - **系統列圖示** — 狀態顏色變化，左鍵切換錄音，右鍵選單。
 - **安全防護** — 可設定最長錄音時間、單一實例提示、自動釋放卡住的修飾鍵。
@@ -57,6 +55,12 @@ Mistral、ElevenLabs，甚至你自架的端點。你只需帶上 API 金鑰，�
    [Gemini](https://aistudio.google.com/apikey) — 任何 OpenAI 相容端點都可
    選 **Custom** 自行填入網址。）
 5. 按住 **Ctrl+Win** 說話，放開 — 文字自動貼上 ✨
+
+<div align="center">
+<img src="docs/settings.png" width="466" alt="設定視窗"/>
+&nbsp;&nbsp;
+<img src="docs/bubble-idle.png" width="106" alt="閒置氣泡"/>
+</div>
 
 ## 設定說明
 
@@ -90,7 +94,7 @@ Mistral、ElevenLabs，甚至你自架的端點。你只需帶上 API 金鑰，�
 | 操作 | 效果 |
 |---|---|
 | 按住快捷鍵 + 說話 | 開始錄音（紅色氣泡）|
-| 放開按鍵 | 轉寫（琥珀色旋轉）→ 自動貼上文字 |
+| 放開按鍵 | 轉寫（黃色旋轉）→ 自動貼上文字 |
 | 托盤／氣泡左鍵 | 開始／停止錄音 |
 | 拖曳氣泡 | 移動位置（自動記憶）|
 | 氣泡右鍵 | 設定選單 |

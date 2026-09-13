@@ -12,11 +12,9 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)
 
-[English](README.md) | [繁體中文](README.zh-TW.md) | 简体中文
+[English](README.md) | [繁體中文（香港）](README.zh-HK.md) | 简体中文
 
-<!-- 📹 演示 GIF — 制作好 docs/demo-quickstart.gif 后取消注释
-<img src="docs/demo-quickstart.gif" width="720" alt="byok-stt 操作演示"/>
--->
+<img src="docs/demo-quickstart.gif" width="383" alt="byok-stt 操作演示：转写时气泡变为黄色，完成后文字出现"/>
 
 </div>
 
@@ -36,7 +34,7 @@ Mistral、ElevenLabs，甚至你自建的端点。你只需带上 API 密钥，�
   `Ctrl+Space`（Linux），可完全自定义。
 - **任意服务提供商** — 内置 OpenRouter、OpenAI、Groq、Google Gemini、
   Mistral、ElevenLabs 预设，也可自行编辑 API 网址接入任何 OpenAI 兼容端点。
-- **屏幕指示气泡** — 只在录音（红色）或转写（琥珀色旋转）时出现的小圆点。
+- **屏幕指示气泡** — 只在录音（红色）或转写（黄色旋转）时出现的小圆点。
   可拖动移动、可设置常驻显示；左键开始／停止录音，右键打开设置。
 - **系统托盘图标** — 状态颜色变化，左键切换录音，右键菜单。
 - **安全防护** — 可设置最长录音时间、单实例提示、自动释放卡住的修饰键。
@@ -57,6 +55,12 @@ Mistral、ElevenLabs，甚至你自建的端点。你只需带上 API 密钥，�
    [Gemini](https://aistudio.google.com/apikey) — 任何 OpenAI 兼容端点都可
    选 **Custom** 自行填入网址。）
 5. 按住 **Ctrl+Win** 说话，松开 — 文字自动粘贴 ✨
+
+<div align="center">
+<img src="docs/settings.png" width="466" alt="设置窗口"/>
+&nbsp;&nbsp;
+<img src="docs/bubble-idle.png" width="106" alt="空闲气泡"/>
+</div>
 
 ## 设置说明
 
@@ -90,7 +94,7 @@ Mistral、ElevenLabs，甚至你自建的端点。你只需带上 API 密钥，�
 | 操作 | 效果 |
 |---|---|
 | 按住快捷键 + 说话 | 开始录音（红色气泡）|
-| 松开按键 | 转写（琥珀色旋转）→ 自动粘贴文字 |
+| 松开按键 | 转写（黄色旋转）→ 自动粘贴文字 |
 | 托盘／气泡左键 | 开始／停止录音 |
 | 拖动气泡 | 移动位置（自动记忆）|
 | 气泡右键 | 设置菜单 |

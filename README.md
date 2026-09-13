@@ -12,11 +12,9 @@ Hold the hotkey, speak, release — your words appear as text.
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue)
 
-English | [繁體中文](README.zh-TW.md) | [简体中文](README.zh-CN.md)
+English | [繁體中文（香港）](README.zh-HK.md) | [简体中文](README.zh-CN.md)
 
-<!-- 📹 demo GIF — uncomment once docs/demo-quickstart.gif exists
-<img src="docs/demo-quickstart.gif" width="720" alt="byok-stt in action"/>
--->
+<img src="docs/demo-quickstart.gif" width="383" alt="byok-stt in action: the bubble turns yellow while transcribing, then the text appears"/>
 
 </div>
 
@@ -39,7 +37,7 @@ thing is a single ~1 MB executable.
   Mistral and ElevenLabs, plus an editable base URL for anything else that
   speaks the OpenAI format.
 - **On-screen bubble** — a small indicator that only appears while you dictate
-  (red) or transcribe (amber spinner). Draggable, optional always-on gray mode,
+  (red) or transcribe (yellow spinner). Draggable, optional always-on gray mode,
   left-click to start/stop, right-click for settings.
 - **Tray icon** — state colors, left-click toggles recording, right-click menu.
 - **Safety nets** — configurable max recording length, single-instance
@@ -61,6 +59,12 @@ thing is a single ~1 MB executable.
    [Gemini](https://aistudio.google.com/apikey) — any OpenAI-compatible
    endpoint works via **Custom**.)
 5. Hold **Ctrl+Win**, speak, release. ✨
+
+<div align="center">
+<img src="docs/settings.png" width="466" alt="Settings window"/>
+&nbsp;&nbsp;
+<img src="docs/bubble-idle.png" width="106" alt="Idle bubble"/>
+</div>
 
 ## Settings reference
 
@@ -94,7 +98,7 @@ File-style models (`whisper`, `voxtral`, `*-transcribe`, `scribe`) are sent to
 | Action | Result |
 |---|---|
 | Hold the hotkey + speak | Recording starts (red bubble) |
-| Release keys | Transcribes (amber spinner) → pastes text |
+| Release keys | Transcribes (yellow spinner) → pastes text |
 | Tray / bubble left-click | Start / stop recording |
 | Drag the bubble | Move it (position is remembered) |
 | Bubble right-click | Settings menu |
