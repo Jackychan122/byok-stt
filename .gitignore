@@ -1,0 +1,21 @@
+# Rust / Cargo
+/target
+**/*.rs.bk
+
+# Local test artifacts
+*.wav
+settings_check*.png
+ulw_render_check.png
+bubble_*.png
+icon_*.png
+panic_err.txt
+diag_err.txt
+
+# Never commit user data even if copied here by accident
+config.json
+config*.json
+log.txt
+
+# OS noise
+Thumbs.db
+Desktop.ini
