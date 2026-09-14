@@ -75,6 +75,7 @@ Mistral、ElevenLabs，甚至你自架的端點。你只需帶上 API 金鑰，�
 | Model | 依 Provider | 可編輯下拉選單，附建議清單 |
 | Prompt（可選）| 空 | 每次轉寫附帶的風格提示 — 例如廣東話口語。OpenAI、Groq 及自建 Whisper 端點支援 prompt 欄位；chat 音訊模型則當作風格指令。OpenRouter 的轉寫端點目前接受但忽略 prompt — 設定視窗會喺呢個組合顯示警告。 |
 | 開機自動啟動 | 關 | 用戶層級啟動項目（HKCU Run），喺設定中切換，毋需管理員權限 |
+| 繁體輸出 | 關 | 貼上前將簡體結果轉做繁體（詞級簡轉繁，OpenCC 數據） |
 | Hotkey | Ctrl+Win | 修飾鍵（Ctrl/Alt/Shift/Win）+ 按鍵（Space、A–Z、0–9、F1–F12）|
 | 常駐顯示氣泡 | 關 | 灰色閒置氣泡固定在螢幕上 |
 | 最長錄音（秒）| 120 | 5–3600；看門狗會自動停止過長錄音 |

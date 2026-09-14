@@ -24,6 +24,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 
 const IDC_PROMPT_WARN: i32 = 2013;
 const IDC_AUTOSTART: i32 = 2014;
+const IDC_S2T: i32 = 2015;
 
 use crate::{config, winutil};
 
@@ -50,6 +51,7 @@ const PROVIDERS: &[(&str, &str, &str, &[&str])] = &[
         "openai/whisper-large-v3-turbo",
         &[
             "openai/whisper-large-v3-turbo",
+            "qwen/qwen3-asr-1.7b",
             "mistralai/voxtral-small-24b-2507",
             "google/gemini-2.5-flash-lite",
             "openai/gpt-4o-mini-transcribe",
@@ -148,7 +150,7 @@ pub fn open(parent: HWND) {
         RegisterClassW(&wc);
         let sw = GetSystemMetrics(SM_CXSCREEN);
         let sh = GetSystemMetrics(SM_CYSCREEN);
-        let (w, h) = (472, 412);
+        let (w, h) = (472, 438);
         let hwnd = CreateWindowExW(
             WINDOW_EX_STYLE(0),
             class,
@@ -331,10 +333,11 @@ unsafe extern "system" fn settings_proc(
             let lmr = ctl(hwnd, w!("STATIC"), label, px(344), px(286), px(48), px(16), 0, w!("Max rec:"));
             let maxrec = ctl(hwnd, w!("EDIT"), edit, px(394), px(286), px(62), px(20), IDC_MAXREC, PCWSTR::null());
             let autostart = ctl(hwnd, w!("BUTTON"), check, px(100), px(310), px(300), px(18), IDC_AUTOSTART, w!("Start byok-stt when Windows starts"));
+            let s2t = ctl(hwnd, w!("BUTTON"), check, px(100), px(334), px(300), px(18), IDC_S2T, w!("Convert output to Traditional Chinese (简→繁)"));
 
-            let save = ctl(hwnd, w!("BUTTON"), WINDOW_STYLE(BS_DEFPUSHBUTTON as u32 | WS_TABSTOP.0), px(288), px(340), px(80), px(28), IDC_SAVE, w!("Save"));
-            let cancel = ctl(hwnd, w!("BUTTON"), WINDOW_STYLE(WS_TABSTOP.0 as u32), px(376), px(340), px(80), px(28), IDC_CANCEL, w!("Cancel"));
-            for h in [l1, prov, l2, base, l3, key, l4, model, l_prompt, prompt, prompt_warn, hint, l5, hk_mod, plus, hk_key, always, lmr, maxrec, autostart, save, cancel] {
+            let save = ctl(hwnd, w!("BUTTON"), WINDOW_STYLE(BS_DEFPUSHBUTTON as u32 | WS_TABSTOP.0), px(288), px(364), px(80), px(28), IDC_SAVE, w!("Save"));
+            let cancel = ctl(hwnd, w!("BUTTON"), WINDOW_STYLE(WS_TABSTOP.0 as u32), px(376), px(364), px(80), px(28), IDC_CANCEL, w!("Cancel"));
+            for h in [l1, prov, l2, base, l3, key, l4, model, l_prompt, prompt, prompt_warn, hint, l5, hk_mod, plus, hk_key, always, lmr, maxrec, autostart, s2t, save, cancel] {
                 apply(h);
             }
 
@@ -377,6 +380,12 @@ unsafe extern "system" fn settings_proc(
                 GetDlgItem(hwnd, IDC_AUTOSTART).unwrap_or_default(),
                 0x00F1,
                 WPARAM(winutil::autostart_command().is_some() as usize * 2),
+                LPARAM(0),
+            );
+            let _ = SendMessageW(
+                GetDlgItem(hwnd, IDC_S2T).unwrap_or_default(),
+                0x00F1,
+                WPARAM(cfg.convert_to_traditional as usize * 2),
                 LPARAM(0),
             );
             update_prompt_warn(hwnd);
@@ -476,6 +485,7 @@ fn on_save(hwnd: HWND) {
     let hk_key = read_ctl(hwnd, IDC_HK_KEY);
     let always = checkbox_checked(hwnd, IDC_ALWAYS);
     let autostart = checkbox_checked(hwnd, IDC_AUTOSTART);
+    let s2t = checkbox_checked(hwnd, IDC_S2T);
     let max_secs = read_ctl(hwnd, IDC_MAXREC).trim().parse::<u32>();
     let max_secs = match max_secs {
         Ok(v) if (5..=3600).contains(&v) => v,
@@ -571,6 +581,7 @@ fn on_save(hwnd: HWND) {
         hotkey_modifier: hk_mod.trim().to_lowercase(),
         hotkey_key: hk_key.trim().to_lowercase(),
         max_recording_secs: max_secs,
+        convert_to_traditional: s2t,
         start_with_windows: autostart,
     };
     if let Err(e) = winutil::set_autostart(autostart) {

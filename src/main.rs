@@ -10,6 +10,7 @@ mod settings;
 mod stt;
 mod tray;
 mod winutil;
+mod zh;
 
 use std::env;
 

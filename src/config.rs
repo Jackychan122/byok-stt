@@ -27,10 +27,13 @@ pub struct Config {
     /// for chat-style audio models.
     #[serde(default)]
     pub stt_prompt: String,
+    /// Convert transcription output from simplified to traditional Chinese.
+    #[serde(default)]
+    pub convert_to_traditional: bool,
     /// Launch byok-stt when Windows starts (HKCU Run entry).
     #[serde(default)]
     pub start_with_windows: bool,
- }
+}
  
  fn default_api_base() -> String {
      "https://openrouter.ai/api/v1".into()
@@ -71,6 +74,7 @@ impl Default for Config {
             hotkey_key: default_hotkey_key(),
             max_recording_secs: default_max_recording_secs(),
             stt_prompt: String::new(),
+            convert_to_traditional: false,
             start_with_windows: false,
         }
     }
@@ -150,6 +154,7 @@ mod tests {
             hotkey_key: "space".into(),
             max_recording_secs: 60,
             stt_prompt: "廣東話口語".into(),
+            convert_to_traditional: true,
             start_with_windows: true,
         };
         let json = serde_json::to_string(&c).unwrap();
@@ -162,5 +167,6 @@ mod tests {
         assert_eq!(back.max_recording_secs, 60);
         assert_eq!(back.stt_prompt, "廣東話口語");
         assert!(back.start_with_windows);
+        assert!(back.convert_to_traditional);
     }
 }

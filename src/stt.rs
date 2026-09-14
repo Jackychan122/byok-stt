@@ -24,18 +24,20 @@ pub fn uses_transcriptions_endpoint(model: &str) -> bool {
 }
 
 /// Transcribe raw WAV bytes through any OpenAI-compatible provider.
-/// File-transcription style models use /audio/transcriptions; other
-/// audio-capable models use chat/completions with inline base64 audio.
 pub fn transcribe_wav(wav: &[u8]) -> Result<String, String> {
     let cfg = config::load();
     if cfg.api_key.trim().is_empty() {
         return Err("API key not configured. Open tray menu > Settings.".into());
     }
-    if uses_transcriptions_endpoint(&cfg.model) {
-        transcribe_transcriptions(wav, &cfg)
+    let mut text = if uses_transcriptions_endpoint(&cfg.model) {
+        transcribe_transcriptions(wav, &cfg)?
     } else {
-        transcribe_chat(wav, &cfg)
+        transcribe_chat(wav, &cfg)?
+    };
+    if cfg.convert_to_traditional {
+        text = crate::zh::s2t(&text);
     }
+    Ok(text)
 }
 
 fn agent() -> Result<ureq::Agent, String> {
