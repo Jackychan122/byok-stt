@@ -94,7 +94,7 @@ thing is a single ~1 MB executable.
 | Mistral | https://console.mistral.ai/apikeys | `voxtral-small-24b-2507` |
 | ElevenLabs | https://elevenlabs.io/app/settings/api-keys | `scribe_v1` |
 
-File-style models (`whisper`, `voxtral`, `*-transcribe`, `scribe`) are sent to
+File-style models (`whisper`, `voxtral`, `*-transcribe`, `scribe`, `*-asr`) are sent to
 `{base}/audio/transcriptions`; everything else goes through
 `{base}/chat/completions` with inline audio.
 

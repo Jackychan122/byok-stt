@@ -321,7 +321,7 @@ unsafe extern "system" fn settings_proc(
                 px(100), px(143), px(356), px(44), IDC_PROMPT, PCWSTR::null(),
             );
             let prompt_warn = ctl(hwnd, w!("STATIC"), label, px(100), px(190), px(356), px(30), IDC_PROMPT_WARN, w!("This provider ignores the prompt for file models (whisper etc.) — it still works with OpenAI, Groq, self-hosted endpoints and chat audio models."));
-            let hint = ctl(hwnd, w!("STATIC"), label, px(12), px(224), px(444), px(30), IDC_HINT, w!("File models (whisper / voxtral / *-transcribe / scribe) use /audio/transcriptions; others use /chat/completions with inline audio."));
+            let hint = ctl(hwnd, w!("STATIC"), label, px(12), px(224), px(444), px(30), IDC_HINT, w!("File models (whisper / voxtral / *-transcribe / scribe / asr) use /audio/transcriptions; others use /chat/completions with inline audio."));
 
             let l5 = ctl(hwnd, w!("STATIC"), label, px(12), px(260), px(84), px(16), 0, w!("Hotkey:"));
             let hk_mod = ctl(hwnd, w!("COMBOBOX"), combo_list, px(100), px(257), px(90), px(180), IDC_HK_MOD, PCWSTR::null());

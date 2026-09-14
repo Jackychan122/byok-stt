@@ -13,10 +13,12 @@ fn endpoints(base: &str) -> (String, String) {
 }
 
 /// True when the configured model routes through the audio transcriptions
-/// endpoint (file-style upload) rather than chat/completions.
+/// endpoint (file-style upload) rather than chat/completions. Covers the
+/// file-model families (whisper, voxtral, scribe), OpenAI's *-transcribe
+/// models and ASR-named models (e.g. qwen3-asr).
 pub fn uses_transcriptions_endpoint(model: &str) -> bool {
     let m = model.to_lowercase();
-    ["whisper", "voxtral", "transcribe", "scribe"]
+    ["whisper", "voxtral", "transcribe", "scribe", "asr"]
         .iter()
         .any(|k| m.contains(k))
 }

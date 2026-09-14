@@ -90,7 +90,7 @@ Mistral、ElevenLabs，甚至你自架的端點。你只需帶上 API 金鑰，�
 | Mistral | https://console.mistral.ai/apikeys | `voxtral-small-24b-2507` |
 | ElevenLabs | https://elevenlabs.io/app/settings/api-keys | `scribe_v1` |
 
-檔案型模型（`whisper`、`voxtral`、`*-transcribe`、`scribe`）會送往
+檔案型模型（`whisper`、`voxtral`、`*-transcribe`、`scribe`、`*-asr`）會送往
 `{base}/audio/transcriptions`；其他模型走 `{base}/chat/completions`
 夾帶音訊。
 
