@@ -77,6 +77,7 @@ thing is a single ~1 MB executable.
 | API base URL | per provider | Any OpenAI-compatible endpoint |
 | API key | — | Stored locally in `%APPDATA%\byok-stt\config.json` |
 | Model | per provider | Editable dropdown with suggestions |
+| Prompt (optional) | empty | Style hint sent with every transcription — e.g. colloquial Cantonese. Honored by OpenAI, Groq and self-hosted Whisper endpoints; passed as a style instruction to chat audio models. OpenRouter's transcription endpoint currently accepts but ignores it. |
 | Hotkey | Ctrl+Win | Modifier (Ctrl/Alt/Shift/Win) + key (Space, A–Z, 0–9, F1–F12) |
 | Keep bubble always visible | off | Gray idle bubble pinned on screen |
 | Max recording (s) | 120 | 5–3600; a watchdog stops long sessions |

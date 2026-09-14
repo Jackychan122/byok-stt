@@ -48,12 +48,22 @@ fn auth_headers(req: ureq::Request) -> ureq::Request {
 
 fn transcribe_chat(wav: &[u8], cfg: &config::Config) -> Result<String, String> {
     let b64 = base64::engine::general_purpose::STANDARD.encode(wav);
+    // Chat audio models follow instructions, so the prompt becomes an
+    // explicit style hint (e.g. colloquial Cantonese output).
+    let hint = cfg.stt_prompt.trim();
+    let instr = if hint.is_empty() {
+        "Transcribe this audio. Output only the transcription text, nothing else.".to_string()
+    } else {
+        format!(
+            "Transcribe this audio. Style hint: {hint}\nOutput only the transcription text, nothing else."
+        )
+    };
     let body = serde_json::json!({
         "model": cfg.model,
         "messages": [{
             "role": "user",
             "content": [
-                {"type": "text", "text": "Transcribe this audio. Output only the transcription text, nothing else."},
+                {"type": "text", "text": instr},
                 {"type": "input_audio", "input_audio": {"data": b64, "format": "wav"}}
             ]
         }]
@@ -82,6 +92,17 @@ fn transcribe_transcriptions(wav: &[u8], cfg: &config::Config) -> Result<String,
         )
         .as_bytes(),
     );
+    // Whisper-style `prompt` field: honored by OpenAI/Groq/self-hosted
+    // endpoints; OpenRouter accepts but ignores it (harmless).
+    let p = cfg.stt_prompt.trim();
+    if !p.is_empty() {
+        body.extend_from_slice(
+            format!(
+                "--{boundary}\r\nContent-Disposition: form-data; name=\"prompt\"\r\n\r\n{p}\r\n"
+            )
+            .as_bytes(),
+        );
+    }
     body.extend_from_slice(
         format!(
             "--{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"audio.wav\"\r\nContent-Type: audio/wav\r\n\r\n"

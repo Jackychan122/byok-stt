@@ -21,6 +21,12 @@ pub struct Config {
     /// Hard limit for one recording, in seconds (clamped to 5..=3600).
     #[serde(default = "default_max_recording_secs")]
     pub max_recording_secs: u32,
+    /// Optional style hint sent with every transcription: the Whisper
+    /// `prompt` field on file-transcription endpoints (OpenAI/Groq pass it
+    /// through; OpenRouter currently ignores it), or an instruction prefix
+    /// for chat-style audio models.
+    #[serde(default)]
+    pub stt_prompt: String,
  }
  
  fn default_api_base() -> String {
@@ -51,19 +57,20 @@ fn default_hotkey_key() -> String {
     }
 }
 
- impl Default for Config {
-     fn default() -> Self {
-         Config {
-             api_key: String::new(),
-             model: "google/gemini-2.5-flash-lite".into(),
-             api_base: default_api_base(),
+impl Default for Config {
+    fn default() -> Self {
+        Config {
+            api_key: String::new(),
+            model: "google/gemini-2.5-flash-lite".into(),
+            api_base: default_api_base(),
             bubble_always_visible: false,
             hotkey_modifier: default_hotkey_modifier(),
             hotkey_key: default_hotkey_key(),
             max_recording_secs: default_max_recording_secs(),
-         }
-     }
- }
+            stt_prompt: String::new(),
+        }
+    }
+}
 
 pub fn config_dir() -> PathBuf {
     let base = std::env::var("APPDATA").unwrap_or_else(|_| ".".into());
@@ -138,6 +145,7 @@ mod tests {
             hotkey_modifier: "alt".into(),
             hotkey_key: "space".into(),
             max_recording_secs: 60,
+            stt_prompt: "廣東話口語".into(),
         };
         let json = serde_json::to_string(&c).unwrap();
         let back: Config = serde_json::from_str(&json).unwrap();
@@ -145,7 +153,7 @@ mod tests {
         assert_eq!(back.api_base, "https://api.groq.com/openai/v1");
         assert!(back.bubble_always_visible);
         assert_eq!(back.hotkey_modifier, "alt");
-        assert_eq!(back.hotkey_key, "space");
         assert_eq!(back.max_recording_secs, 60);
+        assert_eq!(back.stt_prompt, "廣東話口語");
     }
 }

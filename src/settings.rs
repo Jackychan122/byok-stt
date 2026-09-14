@@ -27,6 +27,7 @@ const APP_ICO: &[u8] = include_bytes!("../assets/app.ico");
 
 const IDC_PROVIDER: i32 = 2001;
 const IDC_MAXREC: i32 = 2011;
+const IDC_PROMPT: i32 = 2012;
 const IDC_BASE: i32 = 2002;
 const IDC_KEY: i32 = 2003;
 const IDC_MODEL: i32 = 2004;
@@ -143,7 +144,7 @@ pub fn open(parent: HWND) {
         RegisterClassW(&wc);
         let sw = GetSystemMetrics(SM_CXSCREEN);
         let sh = GetSystemMetrics(SM_CYSCREEN);
-        let (w, h) = (472, 332);
+        let (w, h) = (472, 358);
         let hwnd = CreateWindowExW(
             WINDOW_EX_STYLE(0),
             class,
@@ -308,19 +309,21 @@ unsafe extern "system" fn settings_proc(
             let key = ctl(hwnd, w!("EDIT"), WINDOW_STYLE(edit.0 | ES_PASSWORD as u32), px(100), px(80), px(356), px(22), IDC_KEY, PCWSTR::null());
             let l4 = ctl(hwnd, w!("STATIC"), label, px(12), px(115), px(84), px(16), 0, w!("Model:"));
             let model = ctl(hwnd, w!("COMBOBOX"), combo_edit, px(100), px(112), px(356), px(180), IDC_MODEL, PCWSTR::null());
-            let hint = ctl(hwnd, w!("STATIC"), label, px(12), px(146), px(444), px(30), IDC_HINT, w!("File models (whisper / voxtral / *-transcribe / scribe) use /audio/transcriptions; others use /chat/completions with inline audio."));
+            let l_prompt = ctl(hwnd, w!("STATIC"), label, px(12), px(146), px(84), px(16), 0, w!("Prompt:"));
+            let prompt = ctl(hwnd, w!("EDIT"), edit, px(100), px(143), px(356), px(22), IDC_PROMPT, PCWSTR::null());
+            let hint = ctl(hwnd, w!("STATIC"), label, px(12), px(172), px(444), px(30), IDC_HINT, w!("File models (whisper / voxtral / *-transcribe / scribe) use /audio/transcriptions; others use /chat/completions with inline audio."));
 
-            let l5 = ctl(hwnd, w!("STATIC"), label, px(12), px(185), px(84), px(16), 0, w!("Hotkey:"));
-            let hk_mod = ctl(hwnd, w!("COMBOBOX"), combo_list, px(100), px(182), px(90), px(180), IDC_HK_MOD, PCWSTR::null());
-            let plus = ctl(hwnd, w!("STATIC"), label, px(194), px(185), px(12), px(16), 0, w!("+"));
-            let hk_key = ctl(hwnd, w!("COMBOBOX"), combo_edit, px(210), px(182), px(110), px(180), IDC_HK_KEY, PCWSTR::null());
-            let always = ctl(hwnd, w!("BUTTON"), check, px(100), px(214), px(236), px(18), IDC_ALWAYS, w!("Keep indicator bubble always visible"));
-            let lmr = ctl(hwnd, w!("STATIC"), label, px(344), px(214), px(48), px(16), 0, w!("Max rec:"));
-            let maxrec = ctl(hwnd, w!("EDIT"), edit, px(394), px(214), px(62), px(20), IDC_MAXREC, PCWSTR::null());
+            let l5 = ctl(hwnd, w!("STATIC"), label, px(12), px(211), px(84), px(16), 0, w!("Hotkey:"));
+            let hk_mod = ctl(hwnd, w!("COMBOBOX"), combo_list, px(100), px(208), px(90), px(180), IDC_HK_MOD, PCWSTR::null());
+            let plus = ctl(hwnd, w!("STATIC"), label, px(194), px(211), px(12), px(16), 0, w!("+"));
+            let hk_key = ctl(hwnd, w!("COMBOBOX"), combo_edit, px(210), px(208), px(110), px(180), IDC_HK_KEY, PCWSTR::null());
+            let always = ctl(hwnd, w!("BUTTON"), check, px(100), px(240), px(236), px(18), IDC_ALWAYS, w!("Keep indicator bubble always visible"));
+            let lmr = ctl(hwnd, w!("STATIC"), label, px(344), px(240), px(48), px(16), 0, w!("Max rec:"));
+            let maxrec = ctl(hwnd, w!("EDIT"), edit, px(394), px(240), px(62), px(20), IDC_MAXREC, PCWSTR::null());
 
-            let save = ctl(hwnd, w!("BUTTON"), WINDOW_STYLE(BS_DEFPUSHBUTTON as u32 | WS_TABSTOP.0), px(288), px(248), px(80), px(28), IDC_SAVE, w!("Save"));
-            let cancel = ctl(hwnd, w!("BUTTON"), WINDOW_STYLE(WS_TABSTOP.0 as u32), px(376), px(248), px(80), px(28), IDC_CANCEL, w!("Cancel"));
-            for h in [l1, prov, l2, base, l3, key, l4, model, hint, l5, hk_mod, plus, hk_key, always, lmr, maxrec, save, cancel] {
+            let save = ctl(hwnd, w!("BUTTON"), WINDOW_STYLE(BS_DEFPUSHBUTTON as u32 | WS_TABSTOP.0), px(288), px(274), px(80), px(28), IDC_SAVE, w!("Save"));
+            let cancel = ctl(hwnd, w!("BUTTON"), WINDOW_STYLE(WS_TABSTOP.0 as u32), px(376), px(274), px(80), px(28), IDC_CANCEL, w!("Cancel"));
+            for h in [l1, prov, l2, base, l3, key, l4, model, l_prompt, prompt, hint, l5, hk_mod, plus, hk_key, always, lmr, maxrec, save, cancel] {
                 apply(h);
             }
 
@@ -346,6 +349,7 @@ unsafe extern "system" fn settings_proc(
             if !cfg.api_key.trim().is_empty() {
                 set_ctl(hwnd, IDC_KEY, &cfg.api_key);
             }
+            set_ctl(hwnd, IDC_PROMPT, cfg.stt_prompt.trim());
 
             // Hotkey combos (macOS "cmd" shows as Win; parser maps them together).
             let mod_disp = if cfg.hotkey_modifier.eq_ignore_ascii_case("cmd") { "Win" } else { &cfg.hotkey_modifier };
@@ -445,6 +449,7 @@ fn on_save(hwnd: HWND) {
     let hk_mod = read_ctl(hwnd, IDC_HK_MOD);
     let hk_key = read_ctl(hwnd, IDC_HK_KEY);
     let always = checkbox_checked(hwnd, IDC_ALWAYS);
+    let prompt = read_ctl(hwnd, IDC_PROMPT).trim().to_string();
     let max_secs = read_ctl(hwnd, IDC_MAXREC).trim().parse::<u32>();
     let max_secs = match max_secs {
         Ok(v) if (5..=3600).contains(&v) => v,
@@ -535,6 +540,7 @@ fn on_save(hwnd: HWND) {
             }
         },
         api_base: base,
+        stt_prompt: prompt,
         bubble_always_visible: always,
         hotkey_modifier: hk_mod.trim().to_lowercase(),
         hotkey_key: hk_key.trim().to_lowercase(),
