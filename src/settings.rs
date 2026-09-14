@@ -148,7 +148,7 @@ pub fn open(parent: HWND) {
         RegisterClassW(&wc);
         let sw = GetSystemMetrics(SM_CXSCREEN);
         let sh = GetSystemMetrics(SM_CYSCREEN);
-        let (w, h) = (472, 396);
+        let (w, h) = (472, 412);
         let hwnd = CreateWindowExW(
             WINDOW_EX_STYLE(0),
             class,
