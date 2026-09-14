@@ -73,7 +73,8 @@ Mistral、ElevenLabs，甚至你自建的端点。你只需带上 API 密钥，�
 | API base URL | 按 Provider | 任何 OpenAI 兼容端点 |
 | API key | — | 保存在本机 `%APPDATA%\byok-stt\config.json` |
 | Model | 按 Provider | 可编辑下拉菜单，附建议列表 |
-| Prompt（可选）| 空 | 每次转写附带的风格提示 — 例如广东话口语。OpenAI、Groq 及自建 Whisper 端点支持 prompt 字段；chat 音频模型则当作风格指令。注意：OpenRouter 的转写端点目前接受但忽略 prompt。 |
+| Prompt（可选）| 空 | 每次转写附带的风格提示 — 例如广东话口语。OpenAI、Groq 及自建 Whisper 端点支持 prompt 字段；chat 音频模型则当作风格指令。OpenRouter 的转写端点目前接受但忽略 prompt — 设置窗口会在该组合显示警告。 |
+| 开机自动启动 | 关 | 用户级启动项（HKCU Run），在设置中切换，无需管理员权限 |
 | Hotkey | Ctrl+Win | 修饰键（Ctrl/Alt/Shift/Win）+ 按键（Space、A–Z、0–9、F1–F12）|
 | 常驻显示气泡 | 关 | 灰色空闲气泡固定在屏幕上 |
 | 最长录音（秒）| 120 | 5–3600；看门狗会自动停止过长录音 |

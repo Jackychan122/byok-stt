@@ -12,20 +12,24 @@ fn endpoints(base: &str) -> (String, String) {
     )
 }
 
+/// True when the configured model routes through the audio transcriptions
+/// endpoint (file-style upload) rather than chat/completions.
+pub fn uses_transcriptions_endpoint(model: &str) -> bool {
+    let m = model.to_lowercase();
+    ["whisper", "voxtral", "transcribe", "scribe"]
+        .iter()
+        .any(|k| m.contains(k))
+}
+
 /// Transcribe raw WAV bytes through any OpenAI-compatible provider.
-/// File-transcription style models (whisper/voxtral/*-transcribe/scribe) use
-/// the audio transcriptions endpoint; other audio-capable models use
-/// chat/completions with inline base64 input_audio.
+/// File-transcription style models use /audio/transcriptions; other
+/// audio-capable models use chat/completions with inline base64 audio.
 pub fn transcribe_wav(wav: &[u8]) -> Result<String, String> {
     let cfg = config::load();
     if cfg.api_key.trim().is_empty() {
         return Err("API key not configured. Open tray menu > Settings.".into());
     }
-    let m = cfg.model.to_lowercase();
-    if ["whisper", "voxtral", "transcribe", "scribe"]
-        .iter()
-        .any(|k| m.contains(k))
-    {
+    if uses_transcriptions_endpoint(&cfg.model) {
         transcribe_transcriptions(wav, &cfg)
     } else {
         transcribe_chat(wav, &cfg)

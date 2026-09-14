@@ -154,3 +154,125 @@ pub fn load_icon(bytes: &'static [u8]) -> HICON {
 pub fn null_hinstance() -> HINSTANCE {
     HINSTANCE::default()
 }
+
+
+/// HKCU\Software\Microsoft\Windows\CurrentVersion\Run — per-user
+/// autostart, no admin required. Registered command is the CURRENT exe path.
+const RUN_KEY: &str = "Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+const RUN_VALUE: &str = "byok-stt";
+
+fn run_key_path() -> Vec<u16> {
+    let mut v: Vec<u16> = RUN_KEY.encode_utf16().collect();
+    v.push(0);
+    v
+}
+
+fn run_value_name() -> Vec<u16> {
+    let mut v: Vec<u16> = RUN_VALUE.encode_utf16().collect();
+    v.push(0);
+    v
+}
+
+/// Returns the registered startup command line, if any.
+pub fn autostart_command() -> Option<String> {
+    use windows::Win32::Foundation::ERROR_SUCCESS;
+    use windows::Win32::System::Registry::{
+        RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_CURRENT_USER, KEY_READ,
+        REG_VALUE_TYPE,
+    };
+    unsafe {
+        let mut hkey = HKEY::default();
+        if RegOpenKeyExW(
+            HKEY_CURRENT_USER,
+            windows::core::PCWSTR(run_key_path().as_ptr()),
+            0,
+            KEY_READ,
+            &mut hkey,
+        ) != ERROR_SUCCESS
+        {
+            return None;
+        }
+        let mut buf = [0u16; 1024];
+        let mut size = (buf.len() * 2) as u32;
+        let mut ty = REG_VALUE_TYPE::default();
+        let ok = RegQueryValueExW(
+            hkey,
+            windows::core::PCWSTR(run_value_name().as_ptr()),
+            None,
+            Some(&mut ty),
+            Some(buf.as_mut_ptr() as *mut u8),
+            Some(&mut size),
+        ) == ERROR_SUCCESS;
+        let _ = RegCloseKey(hkey);
+        if ok {
+            let len = buf.iter().position(|&c| c == 0).unwrap_or(0);
+            Some(String::from_utf16_lossy(&buf[..len]))
+        } else {
+            None
+        }
+    }
+}
+
+/// Enable or disable launching byok-stt when Windows starts.
+pub fn set_autostart(enable: bool) -> Result<(), String> {
+    use windows::Win32::Foundation::{ERROR_FILE_NOT_FOUND, ERROR_SUCCESS};
+    use windows::Win32::System::Registry::{
+        RegCloseKey, RegCreateKeyExW, RegDeleteValueW, RegOpenKeyExW, RegSetValueExW, HKEY,
+        HKEY_CURRENT_USER, KEY_READ, KEY_SET_VALUE, REG_OPTION_NON_VOLATILE, REG_SZ,
+    };
+    unsafe {
+        if enable {
+            let mut hkey = HKEY::default();
+            let err = RegCreateKeyExW(
+                HKEY_CURRENT_USER,
+                windows::core::PCWSTR(run_key_path().as_ptr()),
+                0,
+                None,
+                REG_OPTION_NON_VOLATILE,
+                KEY_SET_VALUE,
+                None,
+                &mut hkey,
+                None,
+            );
+            if err != ERROR_SUCCESS {
+                return Err(format!("open registry: {err:?}"));
+            }
+            let exe = std::env::current_exe().map_err(|e| format!("exe path: {e}"))?;
+            let cmd = format!("\"{}\"", exe.display());
+            let mut data: Vec<u16> = cmd.encode_utf16().collect();
+            data.push(0);
+            let bytes: Vec<u8> = data.iter().flat_map(|w| w.to_le_bytes()).collect();
+            let err = RegSetValueExW(
+                hkey,
+                windows::core::PCWSTR(run_value_name().as_ptr()),
+                0,
+                REG_SZ,
+                Some(&bytes),
+            );
+            let _ = RegCloseKey(hkey);
+            if err != ERROR_SUCCESS {
+                return Err(format!("write registry: {err:?}"));
+            }
+            Ok(())
+        } else {
+            let mut hkey = HKEY::default();
+            let err = RegOpenKeyExW(
+                HKEY_CURRENT_USER,
+                windows::core::PCWSTR(run_key_path().as_ptr()),
+                0,
+                KEY_SET_VALUE | KEY_READ,
+                &mut hkey,
+            );
+            if err != ERROR_SUCCESS {
+                return Ok(()); // nothing registered yet
+            }
+            let err = RegDeleteValueW(hkey, windows::core::PCWSTR(run_value_name().as_ptr()));
+            let _ = RegCloseKey(hkey);
+            if err == ERROR_SUCCESS || err == ERROR_FILE_NOT_FOUND {
+                Ok(())
+            } else {
+                Err(format!("delete registry value: {err:?}"))
+            }
+        }
+    }
+}

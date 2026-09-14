@@ -13,13 +13,17 @@ use windows::Win32::UI::Input::KeyboardAndMouse::SetFocus;
 use windows::Win32::UI::WindowsAndMessaging::{
     BS_AUTOCHECKBOX, BS_DEFPUSHBUTTON, CBS_AUTOHSCROLL, CBS_DROPDOWN, CBS_DROPDOWNLIST,
     CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, ES_AUTOHSCROLL,
-    ES_PASSWORD, GetDlgItem, GetMessageW, GetSystemMetrics, HMENU, IsDialogMessageW,
-    MB_ICONWARNING, MB_OK, MessageBoxW, MSG, PostQuitMessage, RegisterClassW, SM_CXSCREEN,
-    SM_CYSCREEN, SHOW_WINDOW_CMD, SW_SHOW, SendMessageW, SetForegroundWindow, SetWindowTextW,
-    ShowWindow, TranslateMessage, WINDOW_EX_STYLE, WINDOW_STYLE, WINDOW_LONG_PTR_INDEX, WNDCLASSW,
-    WM_CLOSE, WM_COMMAND, WM_CREATE, WM_DESTROY, WM_SETFONT, WS_BORDER, WS_CAPTION, WS_CHILD,
-    WS_OVERLAPPED, WS_SYSMENU, WS_TABSTOP, WS_VISIBLE,
+    ES_AUTOVSCROLL, ES_MULTILINE, ES_PASSWORD, GetDlgItem, GetMessageW, GetSystemMetrics,
+    HMENU, IsDialogMessageW, MB_ICONWARNING, MB_OK, MessageBoxW, MSG, PostQuitMessage,
+    RegisterClassW, SM_CXSCREEN, SM_CYSCREEN, SHOW_WINDOW_CMD, SW_HIDE, SW_SHOW,
+    SendMessageW, SetForegroundWindow, SetWindowTextW, ShowWindow, TranslateMessage,
+    WINDOW_EX_STYLE, WINDOW_STYLE, WINDOW_LONG_PTR_INDEX, WNDCLASSW, WM_CLOSE, WM_COMMAND,
+    WM_CREATE, WM_DESTROY, WM_SETFONT, WS_BORDER, WS_CAPTION, WS_CHILD, WS_OVERLAPPED,
+    WS_SYSMENU, WS_TABSTOP, WS_VISIBLE, WS_VSCROLL,
 };
+
+const IDC_PROMPT_WARN: i32 = 2013;
+const IDC_AUTOSTART: i32 = 2014;
 
 use crate::{config, winutil};
 
@@ -144,7 +148,7 @@ pub fn open(parent: HWND) {
         RegisterClassW(&wc);
         let sw = GetSystemMetrics(SM_CXSCREEN);
         let sh = GetSystemMetrics(SM_CYSCREEN);
-        let (w, h) = (472, 358);
+        let (w, h) = (472, 396);
         let hwnd = CreateWindowExW(
             WINDOW_EX_STYLE(0),
             class,
@@ -310,20 +314,27 @@ unsafe extern "system" fn settings_proc(
             let l4 = ctl(hwnd, w!("STATIC"), label, px(12), px(115), px(84), px(16), 0, w!("Model:"));
             let model = ctl(hwnd, w!("COMBOBOX"), combo_edit, px(100), px(112), px(356), px(180), IDC_MODEL, PCWSTR::null());
             let l_prompt = ctl(hwnd, w!("STATIC"), label, px(12), px(146), px(84), px(16), 0, w!("Prompt:"));
-            let prompt = ctl(hwnd, w!("EDIT"), edit, px(100), px(143), px(356), px(22), IDC_PROMPT, PCWSTR::null());
-            let hint = ctl(hwnd, w!("STATIC"), label, px(12), px(172), px(444), px(30), IDC_HINT, w!("File models (whisper / voxtral / *-transcribe / scribe) use /audio/transcriptions; others use /chat/completions with inline audio."));
+            let prompt = ctl(
+                hwnd,
+                w!("EDIT"),
+                WINDOW_STYLE((ES_MULTILINE | ES_AUTOVSCROLL) as u32 | WS_VSCROLL.0 | WS_TABSTOP.0 | WS_BORDER.0),
+                px(100), px(143), px(356), px(44), IDC_PROMPT, PCWSTR::null(),
+            );
+            let prompt_warn = ctl(hwnd, w!("STATIC"), label, px(100), px(190), px(356), px(30), IDC_PROMPT_WARN, w!("This provider ignores the prompt for file models (whisper etc.) — it still works with OpenAI, Groq, self-hosted endpoints and chat audio models."));
+            let hint = ctl(hwnd, w!("STATIC"), label, px(12), px(224), px(444), px(30), IDC_HINT, w!("File models (whisper / voxtral / *-transcribe / scribe) use /audio/transcriptions; others use /chat/completions with inline audio."));
 
-            let l5 = ctl(hwnd, w!("STATIC"), label, px(12), px(211), px(84), px(16), 0, w!("Hotkey:"));
-            let hk_mod = ctl(hwnd, w!("COMBOBOX"), combo_list, px(100), px(208), px(90), px(180), IDC_HK_MOD, PCWSTR::null());
-            let plus = ctl(hwnd, w!("STATIC"), label, px(194), px(211), px(12), px(16), 0, w!("+"));
-            let hk_key = ctl(hwnd, w!("COMBOBOX"), combo_edit, px(210), px(208), px(110), px(180), IDC_HK_KEY, PCWSTR::null());
-            let always = ctl(hwnd, w!("BUTTON"), check, px(100), px(240), px(236), px(18), IDC_ALWAYS, w!("Keep indicator bubble always visible"));
-            let lmr = ctl(hwnd, w!("STATIC"), label, px(344), px(240), px(48), px(16), 0, w!("Max rec:"));
-            let maxrec = ctl(hwnd, w!("EDIT"), edit, px(394), px(240), px(62), px(20), IDC_MAXREC, PCWSTR::null());
+            let l5 = ctl(hwnd, w!("STATIC"), label, px(12), px(260), px(84), px(16), 0, w!("Hotkey:"));
+            let hk_mod = ctl(hwnd, w!("COMBOBOX"), combo_list, px(100), px(257), px(90), px(180), IDC_HK_MOD, PCWSTR::null());
+            let plus = ctl(hwnd, w!("STATIC"), label, px(194), px(260), px(12), px(16), 0, w!("+"));
+            let hk_key = ctl(hwnd, w!("COMBOBOX"), combo_edit, px(210), px(257), px(110), px(180), IDC_HK_KEY, PCWSTR::null());
+            let always = ctl(hwnd, w!("BUTTON"), check, px(100), px(286), px(236), px(18), IDC_ALWAYS, w!("Keep indicator bubble always visible"));
+            let lmr = ctl(hwnd, w!("STATIC"), label, px(344), px(286), px(48), px(16), 0, w!("Max rec:"));
+            let maxrec = ctl(hwnd, w!("EDIT"), edit, px(394), px(286), px(62), px(20), IDC_MAXREC, PCWSTR::null());
+            let autostart = ctl(hwnd, w!("BUTTON"), check, px(100), px(310), px(300), px(18), IDC_AUTOSTART, w!("Start byok-stt when Windows starts"));
 
-            let save = ctl(hwnd, w!("BUTTON"), WINDOW_STYLE(BS_DEFPUSHBUTTON as u32 | WS_TABSTOP.0), px(288), px(274), px(80), px(28), IDC_SAVE, w!("Save"));
-            let cancel = ctl(hwnd, w!("BUTTON"), WINDOW_STYLE(WS_TABSTOP.0 as u32), px(376), px(274), px(80), px(28), IDC_CANCEL, w!("Cancel"));
-            for h in [l1, prov, l2, base, l3, key, l4, model, l_prompt, prompt, hint, l5, hk_mod, plus, hk_key, always, lmr, maxrec, save, cancel] {
+            let save = ctl(hwnd, w!("BUTTON"), WINDOW_STYLE(BS_DEFPUSHBUTTON as u32 | WS_TABSTOP.0), px(288), px(340), px(80), px(28), IDC_SAVE, w!("Save"));
+            let cancel = ctl(hwnd, w!("BUTTON"), WINDOW_STYLE(WS_TABSTOP.0 as u32), px(376), px(340), px(80), px(28), IDC_CANCEL, w!("Cancel"));
+            for h in [l1, prov, l2, base, l3, key, l4, model, l_prompt, prompt, prompt_warn, hint, l5, hk_mod, plus, hk_key, always, lmr, maxrec, autostart, save, cancel] {
                 apply(h);
             }
 
@@ -362,6 +373,13 @@ unsafe extern "system" fn settings_proc(
                 WPARAM(cfg.bubble_always_visible as usize * 2), // BST_CHECKED
                 LPARAM(0),
             );
+            let _ = SendMessageW(
+                GetDlgItem(hwnd, IDC_AUTOSTART).unwrap_or_default(),
+                0x00F1,
+                WPARAM(winutil::autostart_command().is_some() as usize * 2),
+                LPARAM(0),
+            );
+            update_prompt_warn(hwnd);
             // App icon: small = title bar, big = Alt-Tab.
             let icon_big = winutil::load_icon_sized(APP_ICO, 32);
             let icon_small = winutil::load_icon_sized(APP_ICO, 16);
@@ -370,7 +388,7 @@ unsafe extern "system" fn settings_proc(
             let _ = SetFocus(key);
             LRESULT(0)
         },
-        // WM_CTLCOLORSTATIC (0x0138): gray text for the hint label.
+        // WM_CTLCOLORSTATIC (0x0138): gray text for hint + prompt warning.
         0x0138 => unsafe {
             let ctl_hwnd = HWND(lparam.0 as *mut core::ffi::c_void);
             let id = windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrW(
@@ -378,7 +396,7 @@ unsafe extern "system" fn settings_proc(
                 WINDOW_LONG_PTR_INDEX(-12), // GWL_ID
             ) as i32;
             let hdc = HDC(wparam.0 as *mut core::ffi::c_void);
-            if id == IDC_HINT {
+            if id == IDC_HINT || id == IDC_PROMPT_WARN {
                 let _ = SetTextColor(hdc, COLORREF(0x006E6E6E));
                 let _ = SetBkMode(hdc, TRANSPARENT);
             }
@@ -398,6 +416,13 @@ unsafe extern "system" fn settings_proc(
                             }
                         }
                     }
+                    update_prompt_warn(hwnd);
+                    LRESULT(0)
+                }
+                // Model selected or typed, base URL edited: the warning
+                // depends on both (OpenRouter + file model ⇒ prompt ignored).
+                (IDC_MODEL, 1) | (IDC_MODEL, 5) | (IDC_BASE, 768) => {
+                    update_prompt_warn(hwnd);
                     LRESULT(0)
                 }
                 (IDC_SAVE, 0) => {
@@ -446,10 +471,11 @@ fn on_save(hwnd: HWND) {
     let key = read_ctl(hwnd, IDC_KEY);
     let model = read_ctl(hwnd, IDC_MODEL);
     let base = read_ctl(hwnd, IDC_BASE).trim().to_string();
+    let prompt = read_ctl(hwnd, IDC_PROMPT);
     let hk_mod = read_ctl(hwnd, IDC_HK_MOD);
     let hk_key = read_ctl(hwnd, IDC_HK_KEY);
     let always = checkbox_checked(hwnd, IDC_ALWAYS);
-    let prompt = read_ctl(hwnd, IDC_PROMPT).trim().to_string();
+    let autostart = checkbox_checked(hwnd, IDC_AUTOSTART);
     let max_secs = read_ctl(hwnd, IDC_MAXREC).trim().parse::<u32>();
     let max_secs = match max_secs {
         Ok(v) if (5..=3600).contains(&v) => v,
@@ -545,7 +571,22 @@ fn on_save(hwnd: HWND) {
         hotkey_modifier: hk_mod.trim().to_lowercase(),
         hotkey_key: hk_key.trim().to_lowercase(),
         max_recording_secs: max_secs,
+        start_with_windows: autostart,
     };
+    if let Err(e) = winutil::set_autostart(autostart) {
+        unsafe {
+            let _ = MessageBoxW(
+                hwnd,
+                PCWSTR(
+                    winutil::to_wide(&format!("Could not update the startup entry: {e}"))
+                        .as_ptr(),
+                ),
+                w!("byok-stt"),
+                MB_OK | MB_ICONWARNING,
+            );
+        }
+        return;
+    }
     match config::save(&cfg) {
         Ok(()) => unsafe {
             // Live-apply hotkey + bubble changes in the running tray process.
@@ -560,5 +601,20 @@ fn on_save(hwnd: HWND) {
                 MB_OK | MB_ICONWARNING,
             );
         },
+    }
+}
+
+/// Show the "prompt is ignored" warning only when the current
+/// provider + model combination cannot honor it (OpenRouter
+/// transcription models).
+fn update_prompt_warn(hwnd: HWND) {
+    let base = read_ctl(hwnd, IDC_BASE);
+    let model = read_ctl(hwnd, IDC_MODEL);
+    let ignored = base.to_lowercase().contains("openrouter.ai")
+        && crate::stt::uses_transcriptions_endpoint(&model);
+    unsafe {
+        if let Ok(h) = GetDlgItem(hwnd, IDC_PROMPT_WARN) {
+            let _ = ShowWindow(h, if ignored { SW_SHOW } else { SW_HIDE });
+        }
     }
 }

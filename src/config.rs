@@ -27,6 +27,9 @@ pub struct Config {
     /// for chat-style audio models.
     #[serde(default)]
     pub stt_prompt: String,
+    /// Launch byok-stt when Windows starts (HKCU Run entry).
+    #[serde(default)]
+    pub start_with_windows: bool,
  }
  
  fn default_api_base() -> String {
@@ -68,6 +71,7 @@ impl Default for Config {
             hotkey_key: default_hotkey_key(),
             max_recording_secs: default_max_recording_secs(),
             stt_prompt: String::new(),
+            start_with_windows: false,
         }
     }
 }
@@ -146,6 +150,7 @@ mod tests {
             hotkey_key: "space".into(),
             max_recording_secs: 60,
             stt_prompt: "廣東話口語".into(),
+            start_with_windows: true,
         };
         let json = serde_json::to_string(&c).unwrap();
         let back: Config = serde_json::from_str(&json).unwrap();
@@ -153,7 +158,9 @@ mod tests {
         assert_eq!(back.api_base, "https://api.groq.com/openai/v1");
         assert!(back.bubble_always_visible);
         assert_eq!(back.hotkey_modifier, "alt");
+        assert_eq!(back.hotkey_key, "space");
         assert_eq!(back.max_recording_secs, 60);
         assert_eq!(back.stt_prompt, "廣東話口語");
+        assert!(back.start_with_windows);
     }
 }
