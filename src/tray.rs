@@ -225,6 +225,14 @@ pub fn reload_settings() {
 pub fn notify_reload() {
     post_main(WMAPP_RELOAD);
 }
+
+/// Balloon anchored to the tray icon; usable from other modules.
+pub fn balloon_main(title: &str, msg: &str) {
+    let hwnd = MAIN_HWND.load(Ordering::Relaxed);
+    if hwnd != 0 {
+        balloon(HWND(hwnd as *mut core::ffi::c_void), title, msg, false);
+    }
+}
  
 fn post_main(msg: u32) {
     let hwnd = MAIN_HWND.load(Ordering::Relaxed);

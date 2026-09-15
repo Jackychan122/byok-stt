@@ -477,6 +477,9 @@ fn checkbox_checked(hwnd: HWND, id: i32) -> bool {
 }
 
 fn on_save(hwnd: HWND) {
+    // First-time setup? (key was empty before this save) — afterwards we
+    // nudge the user to try the hotkey right away.
+    let first_setup = config::load().api_key.trim().is_empty();
     let key = read_ctl(hwnd, IDC_KEY);
     let model = read_ctl(hwnd, IDC_MODEL);
     let base = read_ctl(hwnd, IDC_BASE).trim().to_string();
@@ -602,6 +605,29 @@ fn on_save(hwnd: HWND) {
         Ok(()) => unsafe {
             // Live-apply hotkey + bubble changes in the running tray process.
             crate::tray::notify_reload();
+            if first_setup && !STANDALONE.with(|st| *st.borrow()) {
+                let key_disp = match hk_key.trim().to_lowercase().as_str() {
+                    "win" => "Win".to_string(),
+                    "space" => "Space".to_string(),
+                    other => other.to_uppercase(),
+                };
+                let mod_disp = match hk_mod.trim().to_lowercase().as_str() {
+                    "cmd" => "Win".to_string(),
+                    other => {
+                        let mut c = other.chars();
+                        match c.next() {
+                            Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+                            None => other.to_string(),
+                        }
+                    }
+                };
+                crate::tray::balloon_main(
+                    "You're all set!",
+                    &format!(
+                        "Hold {mod_disp}+{key_disp} and speak — your words are typed automatically."
+                    ),
+                );
+            }
             let _ = DestroyWindow(hwnd);
         },
         Err(e) => unsafe {
