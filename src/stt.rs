@@ -45,7 +45,50 @@ fn agent() -> Result<ureq::Agent, String> {
         .tls_connector(std::sync::Arc::new(
             native_tls::TlsConnector::new().map_err(|e| format!("TLS init failed: {e}"))?,
         ))
+        // Connection establishment (TCP + TLS) is capped separately from the
+        // request/response timeout, so an unreachable host fails fast instead
+        // of waiting out the full processing window.
+        .timeout_connect(CONNECT_TIMEOUT)
         .build())
+}
+
+/// Establishing the connection should take well under a second on any
+/// working route; 8 s catches a black-holed route long before the OS default.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(8);
+/// One retry covers transient blips (route hiccups, 5xx, rate limits).
+const MAX_ATTEMPTS: usize = 2;
+const RETRY_BACKOFF: Duration = Duration::from_millis(500);
+
+/// Retry once on network errors, 429 and 5xx; never on client errors or
+/// malformed requests. Returns a human-friendly message on final failure.
+fn send_retry(
+    host: &str,
+    mut attempt: impl FnMut() -> Result<ureq::Response, ureq::Error>,
+) -> Result<ureq::Response, String> {
+    let mut last: Option<ureq::Error> = None;
+    for i in 0..MAX_ATTEMPTS {
+        if i > 0 {
+            std::thread::sleep(RETRY_BACKOFF);
+        }
+        match attempt() {
+            Ok(r) => return Ok(r),
+            Err(e) if is_retryable(&e) => last = Some(e),
+            Err(e) => return Err(http_err(host, e)),
+        }
+    }
+    Err(http_err(host, last.expect("one attempt ran")))
+}
+
+fn is_retryable(e: &ureq::Error) -> bool {
+    match e {
+        ureq::Error::Status(code, _) => *code == 429 || (500..600).contains(code),
+        ureq::Error::Transport(t) => !matches!(
+            t.kind(),
+            ureq::ErrorKind::BadHeader
+                | ureq::ErrorKind::InvalidUrl
+                | ureq::ErrorKind::UnknownScheme
+        ),
+    }
 }
 
 fn auth_headers(req: ureq::Request) -> ureq::Request {
@@ -78,10 +121,12 @@ fn transcribe_chat(wav: &[u8], cfg: &config::Config) -> Result<String, String> {
     });
 
     let (chat_url, _) = endpoints(&cfg.api_base);
-    let resp = auth_headers(agent()?.post(&chat_url))
-        .timeout(Duration::from_secs(30))
-        .send_json(body)
-        .map_err(|e| http_err(e))?;
+    let ag = agent()?;
+    let resp = send_retry(host_of(&chat_url), || {
+        auth_headers(ag.clone().post(&chat_url))
+            .timeout(Duration::from_secs(30))
+            .send_json(&body)
+    })?;
 
     let json: serde_json::Value = resp.into_json().map_err(|e| format!("bad JSON: {e}"))?;
     let text = json["choices"][0]["message"]["content"]
@@ -118,17 +163,18 @@ fn transcribe_transcriptions(wav: &[u8], cfg: &config::Config) -> Result<String,
         .as_bytes(),
     );
     body.extend_from_slice(wav);
-    body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
-
     let (_, stt_url) = endpoints(&cfg.api_base);
-    let resp = auth_headers(agent()?.post(&stt_url))
-        .set(
-            "Content-Type",
-            &format!("multipart/form-data; boundary={boundary}"),
-        )
-        .timeout(Duration::from_secs(30))
-        .send_bytes(&body)
-        .map_err(|e| http_err(e))?;
+    body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+    let ag = agent()?;
+    let resp = send_retry(host_of(&stt_url), || {
+        auth_headers(ag.clone().post(&stt_url))
+            .set(
+                "Content-Type",
+                &format!("multipart/form-data; boundary={boundary}"),
+            )
+            .timeout(Duration::from_secs(30))
+            .send_bytes(&body)
+    })?;
 
     let json: serde_json::Value = resp.into_json().map_err(|e| format!("bad JSON: {e}"))?;
     let text = json["text"]
@@ -137,13 +183,41 @@ fn transcribe_transcriptions(wav: &[u8], cfg: &config::Config) -> Result<String,
     Ok(text.trim().to_string())
 }
 
-fn http_err(e: ureq::Error) -> String {
+/// Host part of a URL, for error messages.
+fn host_of(url: &str) -> &str {
+    url.split("://")
+        .nth(1)
+        .unwrap_or(url)
+        .split('/')
+        .next()
+        .unwrap_or(url)
+}
+
+/// Actionable error text: the balloon is the only thing most users will see.
+fn http_err(host: &str, e: ureq::Error) -> String {
     match e {
+        ureq::Error::Status(401, r) | ureq::Error::Status(403, r) => format!(
+            "{host} rejected the API key (HTTP {}). Open Settings and paste a valid key.",
+            r.status()
+        ),
+        ureq::Error::Status(429, _) => {
+            format!("{host} rate limit reached (HTTP 429). Wait a moment and try again.")
+        }
         ureq::Error::Status(code, r) => {
             let body = r.into_string().unwrap_or_default();
-            format!("HTTP {code}: {}", truncate(&body, 400))
+            format!("{host} returned HTTP {code}: {}", truncate(&body, 300))
         }
-        other => format!("request failed: {other}"),
+        ureq::Error::Transport(t) => match t.kind() {
+            ureq::ErrorKind::Io | ureq::ErrorKind::ConnectionFailed => format!(
+                "Cannot reach {host}: the connection timed out or was dropped — the \
+                 request never reached the server. Check your internet connection, \
+                 VPN or proxy; this is a network route issue, not a server outage."
+            ),
+            ureq::ErrorKind::Dns => {
+                format!("Cannot resolve {host}. Check your DNS or internet connection.")
+            }
+            _ => format!("Network error contacting {host}: {t}"),
+        },
     }
 }
 
