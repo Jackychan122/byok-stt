@@ -92,8 +92,10 @@ thing is a single ~1 MB executable.
 | OpenAI | https://platform.openai.com/api-keys | `gpt-4o-mini-transcribe` |
 | Groq | https://console.groq.com/keys | `whisper-large-v3-turbo` |
 | Google Gemini | https://aistudio.google.com/apikey | `gemini-2.5-flash-lite` |
-| Mistral | https://console.mistral.ai/apikeys | `voxtral-small-24b-2507` |
-| ElevenLabs | https://elevenlabs.io/app/settings/api-keys | `scribe_v1` |
+| Mistral | https://console.mistral.ai/apikeys | `voxtral-small-latest` |
+| ElevenLabs | https://elevenlabs.io/app/settings/api-keys | `scribe_v2` |
+| SiliconFlow | https://cloud.siliconflow.cn/account/ak | `FunAudioLLM/SenseVoiceSmall` |
+| Local (speaches) | no key (self-hosted) | `Systran/faster-whisper-large-v3` |
 
 File-style models (`whisper`, `voxtral`, `*-transcribe`, `scribe`, `*-asr`) are sent to
 `{base}/audio/transcriptions`; everything else goes through

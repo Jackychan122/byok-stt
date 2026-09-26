@@ -78,14 +78,28 @@ const PROVIDERS: &[(&str, &str, &str, &[&str])] = &[
     (
         "Mistral",
         "https://api.mistral.ai/v1",
-        "voxtral-small-24b-2507",
-        &["voxtral-small-24b-2507", "voxtral-mini-24b-2507"],
+        "voxtral-small-latest",
+        &["voxtral-small-latest", "voxtral-mini-latest"],
     ),
     (
         "ElevenLabs",
         "https://api.elevenlabs.io/v1",
-        "scribe_v1",
-        &["scribe_v1"],
+        "scribe_v2",
+        &["scribe_v2", "scribe_v1"],
+    ),
+    // Direct CN endpoint — useful when the OpenRouter route is unreachable.
+    (
+        "SiliconFlow",
+        "https://api.siliconflow.cn/v1",
+        "FunAudioLLM/SenseVoiceSmall",
+        &["FunAudioLLM/SenseVoiceSmall"],
+    ),
+    // Self-hosted speaches (faster-whisper server), OpenAI-compatible.
+    (
+        "Local (speaches)",
+        "http://localhost:8000/v1",
+        "Systran/faster-whisper-large-v3",
+        &["Systran/faster-whisper-large-v3", "whisper-1"],
     ),
     ("Custom", "", "", &[]),
 ];

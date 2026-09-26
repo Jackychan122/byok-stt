@@ -88,8 +88,10 @@ Mistral、ElevenLabs，甚至你自架的端點。你只需帶上 API 金鑰，�
 | OpenAI | https://platform.openai.com/api-keys | `gpt-4o-mini-transcribe` |
 | Groq | https://console.groq.com/keys | `whisper-large-v3-turbo` |
 | Google Gemini | https://aistudio.google.com/apikey | `gemini-2.5-flash-lite` |
-| Mistral | https://console.mistral.ai/apikeys | `voxtral-small-24b-2507` |
-| ElevenLabs | https://elevenlabs.io/app/settings/api-keys | `scribe_v1` |
+| Mistral | https://console.mistral.ai/apikeys | `voxtral-small-latest` |
+| ElevenLabs | https://elevenlabs.io/app/settings/api-keys | `scribe_v2` |
+| SiliconFlow | https://cloud.siliconflow.cn/account/ak | `FunAudioLLM/SenseVoiceSmall` |
+| Local（speaches）| 毋須金鑰（自架）| `Systran/faster-whisper-large-v3` |
 
 檔案型模型（`whisper`、`voxtral`、`*-transcribe`、`scribe`、`*-asr`）會送往
 `{base}/audio/transcriptions`；其他模型走 `{base}/chat/completions`
