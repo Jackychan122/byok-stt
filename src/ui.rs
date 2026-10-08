@@ -1,12 +1,18 @@
 //! UI text table (English / Traditional Chinese, Hong Kong usage).
 //!
-//! Language is decided once per process:
-//! 1. `ui_lang` in config.json overrides ("en" | "zh-hk" | anything else = auto)
-//! 2. auto: the Windows UI language — any Chinese locale gets zh-HK text.
+//! Language is decided from `ui_lang` in config.json:
+//!   "auto" (default) -> the Windows UI language; any Chinese locale gets
+//!   the Traditional table. "en" / "zh-hk" force one.
+//!
+//! The choice is cached in an atomic and re-resolved by `reload()` when the
+//! tray reloads settings, so saving a new language takes effect immediately.
 
-use std::sync::LazyLock;
+use std::sync::atomic::{AtomicU8, Ordering};
 
 use crate::config;
+
+/// 0 = not resolved yet, 1 = English, 2 = zh-HK.
+static LANG: AtomicU8 = AtomicU8::new(0);
 
 /// Every user-visible string, one field each. The two consts below must list
 /// identical fields; the compiler enforces that via the struct type.
@@ -25,6 +31,9 @@ pub struct Texts {
     pub always_visible: &'static str,
     pub autostart: &'static str,
     pub s2t: &'static str,
+    pub lang_label: &'static str,
+    /// Display labels for the language dropdown: [auto, en, zh-hk].
+    pub lang_opts: &'static [&'static str],
     pub save: &'static str,
     pub cancel: &'static str,
     // Validation / save errors
@@ -75,10 +84,12 @@ const EN: Texts = Texts {
     prompt_warn: "This provider ignores the prompt for file models (whisper etc.) — it still works with OpenAI, Groq, self-hosted endpoints and chat audio models.",
     hint: "File models (whisper / voxtral / *-transcribe / scribe / asr) use /audio/transcriptions; others use /chat/completions with inline audio.",
     hotkey: "Hotkey:",
-    max_rec: "Max rec:",
+    max_rec: "Max length (s):",
     always_visible: "Keep indicator bubble always visible",
     autostart: "Start byok-stt when Windows starts",
     s2t: "Convert output to Traditional Chinese (简→繁)",
+    lang_label: "Language:",
+    lang_opts: &["Auto (follow Windows)", "English", "繁體中文（香港）"],
     save: "Save",
     cancel: "Cancel",
     err_maxrec: "Max recording must be a number of seconds between 5 and 3600.",
@@ -125,10 +136,12 @@ const ZH_HK: Texts = Texts {
     prompt_warn: "此供應商嘅檔案模型（whisper 等）會忽略提示詞 — 但 OpenAI、Groq、自建端點同對話音訊模型照用得。",
     hint: "檔案模型（whisper / voxtral / *-transcribe / scribe / asr）行 /audio/transcriptions；其他行 /chat/completions 內嵌音訊。",
     hotkey: "快速鍵：",
-    max_rec: "最長錄音：",
+    max_rec: "錄音上限：",
     always_visible: "永遠顯示狀態氣泡",
     autostart: "Windows 啟動時自動執行 byok-stt",
     s2t: "輸出轉為繁體中文（简→繁）",
+    lang_label: "介面語言：",
+    lang_opts: &["自動（跟隨 Windows）", "English", "繁體中文（香港）"],
     save: "儲存",
     cancel: "取消",
     err_maxrec: "最長錄音必須係 5 至 3600 秒之間嘅數字。",
@@ -161,29 +174,61 @@ const ZH_HK: Texts = Texts {
     err_no_key: "未設定 API 金鑰 — 請由托盤選單開啟設定。",
     err_key_rejected: "{host} 拒絕咗 API 金鑰（HTTP {code}）。請開啟設定貼上有效金鑰。",
     err_rate_limited: "{host} 已達速率限制（HTTP 429）。請稍等一陣再試。",
-    err_unreachable: "無法連線至 {host} — 請檢查網絡連線或稍後再試（網絡路由問題）。",
+    err_unreachable: "無法連線至 {host}：連線逾時或中斷 — 請求未送達伺服器。請檢查網絡、VPN 或代理；呢個係網絡路由問題，唔係伺服器故障。",
     err_dns: "無法解析 {host} — 請檢查網絡連線。",
 };
 
-static TEXTS: LazyLock<&'static Texts> = LazyLock::new(|| {
+/// Config values for the language dropdown, index-aligned with lang_opts.
+pub const LANG_VALUES: [&str; 3] = ["auto", "en", "zh-hk"];
+
+fn detect() -> u8 {
     let cfg = config::load();
-    match cfg.ui_lang.as_str() {
-        "en" => &EN,
-        "zh-hk" => &ZH_HK,
+    let v = match cfg.ui_lang.as_str() {
+        "en" => 1,
+        "zh-hk" => 2,
         _ => {
             // LANG_CHINESE = 0x04; every Chinese locale (zh-HK/TW/CN/SG/MO)
             // gets the Traditional table. Override with ui_lang "en" if needed.
             let id = unsafe { windows::Win32::Globalization::GetUserDefaultUILanguage() };
             if id & 0xFF == 0x04 {
+                2
+            } else {
+                1
+            }
+        }
+    };
+    crate::logging::log(&format!(
+        "ui detect: ui_lang={:?} appdata={:?} -> {}",
+        cfg.ui_lang,
+        std::env::var("APPDATA").unwrap_or_default(),
+        v
+    ));
+    if let Ok(s) = std::fs::read_to_string(config::config_dir().join("config.json")) {
+        crate::logging::log(&format!("ui detect raw config: {s:?}"));
+    } else {
+        crate::logging::log("ui detect: config.json unreadable");
+    }
+    v
+}
+
+/// All user-visible strings in the current UI language.
+pub fn t() -> &'static Texts {
+    match LANG.load(Ordering::Relaxed) {
+        1 => &EN,
+        2 => &ZH_HK,
+        _ => {
+            let l = detect();
+            LANG.store(l, Ordering::Relaxed);
+            if l == 2 {
                 &ZH_HK
             } else {
                 &EN
             }
         }
     }
-});
+}
 
-/// All user-visible strings in the current UI language.
-pub fn t() -> &'static Texts {
-    &TEXTS
+/// Drop the cached language; the next t() re-resolves it from config.
+pub fn reload() {
+    LANG.store(0, Ordering::Relaxed);
 }

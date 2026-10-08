@@ -24,6 +24,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
 const IDC_PROMPT_WARN: i32 = 2013;
 const IDC_AUTOSTART: i32 = 2014;
 const IDC_S2T: i32 = 2015;
+const IDC_LANG: i32 = 2016;
 
 use crate::{config, winutil};
 
@@ -167,7 +168,7 @@ pub fn open(parent: HWND) {
         RegisterClassW(&wc);
         let sw = GetSystemMetrics(SM_CXSCREEN);
         let sh = GetSystemMetrics(SM_CYSCREEN);
-        let (w, h) = (472, 438);
+        let (w, h) = (472, 462);
         let hwnd = CreateWindowExW(
             WINDOW_EX_STYLE(0),
             class,
@@ -201,13 +202,18 @@ unsafe fn ctl(
     w: i32,
     h: i32,
     id: i32,
-    text: PCWSTR,
+    text: &str,
 ) -> HWND {
+    // Convert here, inside the call, so the buffer outlives the
+    // CreateWindowExW call that copies it. (A helper that returns a PCWSTR
+    // into its own temporary Vec freed the buffer on return — the classic
+    // source of the intermittent garbled labels.)
+    let wide = winutil::to_wide(text);
     unsafe {
         CreateWindowExW(
             WINDOW_EX_STYLE(0),
             class,
-            text,
+            PCWSTR(wide.as_ptr()),
             WINDOW_STYLE(style.0 | WS_CHILD.0 | WS_VISIBLE.0),
             x,
             y,
@@ -220,12 +226,6 @@ unsafe fn ctl(
         )
         .expect("create control")
     }
-}
-
-/// Localized control text as PCWSTR. The Vec lives to the end of the
-/// statement, and CreateWindowExW copies the string during the call.
-unsafe fn lp(text: &str) -> PCWSTR {
-    PCWSTR(winutil::to_wide(text).as_ptr())
 }
 
 fn read_ctl(parent: HWND, id: i32) -> String {
@@ -340,7 +340,7 @@ unsafe extern "system" fn settings_proc(
                 px(84),
                 px(16),
                 0,
-                lp(crate::ui::t().provider),
+                crate::ui::t().provider,
             );
             let prov = ctl(
                 hwnd,
@@ -351,7 +351,7 @@ unsafe extern "system" fn settings_proc(
                 px(356),
                 px(180),
                 IDC_PROVIDER,
-                PCWSTR::null(),
+                "",
             );
             let l2 = ctl(
                 hwnd,
@@ -362,7 +362,7 @@ unsafe extern "system" fn settings_proc(
                 px(84),
                 px(16),
                 0,
-                lp(crate::ui::t().api_base),
+                crate::ui::t().api_base,
             );
             let base = ctl(
                 hwnd,
@@ -373,7 +373,7 @@ unsafe extern "system" fn settings_proc(
                 px(356),
                 px(22),
                 IDC_BASE,
-                PCWSTR::null(),
+                "",
             );
             let l3 = ctl(
                 hwnd,
@@ -384,7 +384,7 @@ unsafe extern "system" fn settings_proc(
                 px(84),
                 px(16),
                 0,
-                lp(crate::ui::t().api_key),
+                crate::ui::t().api_key,
             );
             let key = ctl(
                 hwnd,
@@ -395,7 +395,7 @@ unsafe extern "system" fn settings_proc(
                 px(356),
                 px(22),
                 IDC_KEY,
-                PCWSTR::null(),
+                "",
             );
             let l4 = ctl(
                 hwnd,
@@ -406,7 +406,7 @@ unsafe extern "system" fn settings_proc(
                 px(84),
                 px(16),
                 0,
-                lp(crate::ui::t().model),
+                crate::ui::t().model,
             );
             let model = ctl(
                 hwnd,
@@ -417,7 +417,7 @@ unsafe extern "system" fn settings_proc(
                 px(356),
                 px(180),
                 IDC_MODEL,
-                PCWSTR::null(),
+                "",
             );
             let l_prompt = ctl(
                 hwnd,
@@ -428,7 +428,7 @@ unsafe extern "system" fn settings_proc(
                 px(84),
                 px(16),
                 0,
-                lp(crate::ui::t().prompt),
+                crate::ui::t().prompt,
             );
             let prompt = ctl(
                 hwnd,
@@ -444,9 +444,8 @@ unsafe extern "system" fn settings_proc(
                 px(356),
                 px(44),
                 IDC_PROMPT,
-                PCWSTR::null(),
+                "",
             );
-            let warn_txt = winutil::to_wide(crate::ui::t().prompt_warn);
             let prompt_warn = ctl(
                 hwnd,
                 w!("STATIC"),
@@ -456,9 +455,8 @@ unsafe extern "system" fn settings_proc(
                 px(356),
                 px(30),
                 IDC_PROMPT_WARN,
-                PCWSTR(warn_txt.as_ptr()),
+                crate::ui::t().prompt_warn,
             );
-            let hint_txt = winutil::to_wide(crate::ui::t().hint);
             let hint = ctl(
                 hwnd,
                 w!("STATIC"),
@@ -468,7 +466,7 @@ unsafe extern "system" fn settings_proc(
                 px(444),
                 px(30),
                 IDC_HINT,
-                PCWSTR(hint_txt.as_ptr()),
+                crate::ui::t().hint,
             );
 
             let l5 = ctl(
@@ -480,7 +478,7 @@ unsafe extern "system" fn settings_proc(
                 px(84),
                 px(16),
                 0,
-                lp(crate::ui::t().hotkey),
+                crate::ui::t().hotkey,
             );
             let hk_mod = ctl(
                 hwnd,
@@ -491,7 +489,7 @@ unsafe extern "system" fn settings_proc(
                 px(90),
                 px(180),
                 IDC_HK_MOD,
-                PCWSTR::null(),
+                "",
             );
             let plus = ctl(
                 hwnd,
@@ -502,7 +500,7 @@ unsafe extern "system" fn settings_proc(
                 px(12),
                 px(16),
                 0,
-                w!("+"),
+                "+",
             );
             let hk_key = ctl(
                 hwnd,
@@ -513,7 +511,7 @@ unsafe extern "system" fn settings_proc(
                 px(110),
                 px(180),
                 IDC_HK_KEY,
-                PCWSTR::null(),
+                "",
             );
             let always = ctl(
                 hwnd,
@@ -521,32 +519,32 @@ unsafe extern "system" fn settings_proc(
                 check,
                 px(100),
                 px(286),
-                px(236),
+                px(170),
                 px(18),
                 IDC_ALWAYS,
-                lp(crate::ui::t().always_visible),
+                crate::ui::t().always_visible,
             );
             let lmr = ctl(
                 hwnd,
                 w!("STATIC"),
                 label,
-                px(344),
+                px(276),
                 px(286),
-                px(48),
+                px(104),
                 px(16),
                 0,
-                lp(crate::ui::t().max_rec),
+                crate::ui::t().max_rec,
             );
             let maxrec = ctl(
                 hwnd,
                 w!("EDIT"),
                 edit,
-                px(394),
+                px(382),
                 px(286),
-                px(62),
+                px(74),
                 px(20),
                 IDC_MAXREC,
-                PCWSTR::null(),
+                "",
             );
             let autostart = ctl(
                 hwnd,
@@ -557,7 +555,7 @@ unsafe extern "system" fn settings_proc(
                 px(300),
                 px(18),
                 IDC_AUTOSTART,
-                lp(crate::ui::t().autostart),
+                crate::ui::t().autostart,
             );
             let s2t = ctl(
                 hwnd,
@@ -568,7 +566,29 @@ unsafe extern "system" fn settings_proc(
                 px(300),
                 px(18),
                 IDC_S2T,
-                lp(crate::ui::t().s2t),
+                crate::ui::t().s2t,
+            );
+            let l_lang = ctl(
+                hwnd,
+                w!("STATIC"),
+                label,
+                px(12),
+                px(358),
+                px(84),
+                px(16),
+                0,
+                crate::ui::t().lang_label,
+            );
+            let lang = ctl(
+                hwnd,
+                w!("COMBOBOX"),
+                combo_list,
+                px(100),
+                px(355),
+                px(180),
+                px(120),
+                IDC_LANG,
+                "",
             );
 
             let save = ctl(
@@ -576,22 +596,22 @@ unsafe extern "system" fn settings_proc(
                 w!("BUTTON"),
                 WINDOW_STYLE(BS_DEFPUSHBUTTON as u32 | WS_TABSTOP.0),
                 px(288),
-                px(364),
+                px(384),
                 px(80),
                 px(28),
                 IDC_SAVE,
-                lp(crate::ui::t().save),
+                crate::ui::t().save,
             );
             let cancel = ctl(
                 hwnd,
                 w!("BUTTON"),
                 WINDOW_STYLE(WS_TABSTOP.0),
                 px(376),
-                px(364),
+                px(384),
                 px(80),
                 px(28),
                 IDC_CANCEL,
-                lp(crate::ui::t().cancel),
+                crate::ui::t().cancel,
             );
             for h in [
                 l1,
@@ -615,6 +635,8 @@ unsafe extern "system" fn settings_proc(
                 maxrec,
                 autostart,
                 s2t,
+                l_lang,
+                lang,
                 save,
                 cancel,
             ] {
@@ -654,6 +676,18 @@ unsafe extern "system" fn settings_proc(
             };
             fill_combo(hwnd, IDC_HK_MOD, HK_MODIFIERS, mod_disp);
             fill_combo(hwnd, IDC_HK_KEY, HK_KEYS, &cfg.hotkey_key);
+            let lang_idx = match cfg.ui_lang.as_str() {
+                "en" => 1,
+                "zh-hk" => 2,
+                _ => 0,
+            };
+            fill_combo(hwnd, IDC_LANG, crate::ui::t().lang_opts, "");
+            let _ = SendMessageW(
+                GetDlgItem(hwnd, IDC_LANG).unwrap_or_default(),
+                0x014E, // CB_SETCURSEL
+                WPARAM(lang_idx as usize),
+                LPARAM(0),
+            );
             set_ctl(hwnd, IDC_MAXREC, &cfg.max_recording_secs.to_string());
             let _ = SendMessageW(
                 GetDlgItem(hwnd, IDC_ALWAYS).unwrap_or_default(),
@@ -775,6 +809,19 @@ fn on_save(hwnd: HWND) {
     let autostart = checkbox_checked(hwnd, IDC_AUTOSTART);
     let s2t = checkbox_checked(hwnd, IDC_S2T);
     let max_secs = read_ctl(hwnd, IDC_MAXREC).trim().parse::<u32>();
+    let lang_idx = unsafe {
+        SendMessageW(
+            GetDlgItem(hwnd, IDC_LANG).unwrap_or_default(),
+            0x0147, // CB_GETCURSEL
+            WPARAM(0),
+            LPARAM(0),
+        )
+        .0
+    };
+    let ui_lang = crate::ui::LANG_VALUES
+        .get(lang_idx as usize)
+        .copied()
+        .unwrap_or("auto");
     let max_secs = match max_secs {
         Ok(v) if (5..=3600).contains(&v) => v,
         _ => {
@@ -843,7 +890,7 @@ fn on_save(hwnd: HWND) {
                 m.to_string()
             }
         },
-        ui_lang: config::load().ui_lang,
+        ui_lang: ui_lang.into(),
         api_base: base,
         stt_prompt: prompt,
         bubble_always_visible: always,

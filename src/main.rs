@@ -72,10 +72,7 @@ fn main() {
             winutil::send_paste();
             // Same flow as a real dictation: restore the previous clipboard
             // after the paste. Stay alive past the restore window.
-            winutil::restore_clipboard_later(winutil::clipboard_guard(
-                text.to_string(),
-                backup,
-            ));
+            winutil::restore_clipboard_later(winutil::clipboard_guard(text.to_string(), backup));
             std::thread::sleep(std::time::Duration::from_millis(1600));
         }
         Some("--settings") => settings::run_standalone(),

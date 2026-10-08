@@ -283,6 +283,7 @@ unsafe extern "system" fn wnd_proc(
         }
         WMAPP_RELOAD => {
             reload_settings();
+            crate::ui::reload();
             LRESULT(0)
         }
         WMAPP_PING => {

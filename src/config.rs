@@ -5,6 +5,9 @@ use std::path::PathBuf;
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Config {
     pub api_key: String,
+    /// A missing/invalid config must not lose the API key, so every field
+    /// (model included) falls back to a default on parse.
+    #[serde(default = "default_model")]
     pub model: String,
     /// OpenAI-compatible base URL, e.g. https://openrouter.ai/api/v1
     #[serde(default = "default_api_base")]
@@ -41,6 +44,10 @@ pub struct Config {
 
 fn default_api_base() -> String {
     "https://openrouter.ai/api/v1".into()
+}
+
+fn default_model() -> String {
+    "google/gemini-2.5-flash-lite".into()
 }
 
 fn default_ui_lang() -> String {
