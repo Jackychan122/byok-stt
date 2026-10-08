@@ -276,3 +276,30 @@ pub fn set_autostart(enable: bool) -> Result<(), String> {
         }
     }
 }
+
+
+/// Opt out of Windows power throttling (EcoQoS / efficiency mode). Without
+/// this, a long-idle tray app gets its execution speed throttled and the
+/// first keyboard-hook callback after idle arrives late — felt as slow
+/// hotkey response. StateMask 0 = "never throttle execution speed".
+pub fn prevent_idle_throttling() {
+    use windows::Win32::System::Threading::{
+        GetCurrentProcess, SetProcessInformation, ProcessPowerThrottling,
+        PROCESS_POWER_THROTTLING_CURRENT_VERSION, PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
+        PROCESS_POWER_THROTTLING_STATE,
+    };
+    unsafe {
+        let info = PROCESS_POWER_THROTTLING_STATE {
+            Version: PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+            ControlMask: PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
+            StateMask: 0,
+        };
+        let ok = SetProcessInformation(
+            GetCurrentProcess(),
+            ProcessPowerThrottling,
+            &info as *const _ as *const core::ffi::c_void,
+            std::mem::size_of::<PROCESS_POWER_THROTTLING_STATE>() as u32,
+        );
+        crate::logging::log(&format!("power throttling opt-out: {:?}", ok.is_ok()));
+    }
+}

@@ -3,6 +3,14 @@
 All notable changes to byok-stt are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- First-press responsiveness after boot or long idle: the default microphone
+  is resolved once at app launch (`prewarm`) instead of on every hotkey
+  press, and the process opts out of Windows power throttling (EcoQoS) so an
+  idle tray app is never slowed down before the first dictation.
+
 ## [0.1.3] - 2026-09-15
 
 ### Added

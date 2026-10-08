@@ -123,6 +123,10 @@ pub fn run() {
         let hook = SetWindowsHookExW(WH_KEYBOARD_LL, Some(hook_proc), HMODULE::default(), 0)
             .expect("install keyboard hook");
 
+        // First-press responsiveness: pay the cold mic-enumeration cost now
+        // and keep Windows from throttling this long-idle tray app (EcoQoS).
+        crate::winutil::prevent_idle_throttling();
+        crate::audio::prewarm();
         let mut msg = MSG::default();
         loop {
             let r = GetMessageW(&mut msg, HWND::default(), 0, 0);

@@ -38,7 +38,29 @@ pub fn encode_wav(samples: &[i16], spec: hound::WavSpec) -> Result<Vec<u8>, Stri
     Ok(out)
 }
 
-pub fn start() -> Result<Recorder, String> {
+/// Resolved once and cached: WASAPI device enumeration + config queries are
+/// the slow part of a cold capture start (100 ms - 2 s after boot or long
+/// idle). prewarm() forces resolution at app launch so the first hotkey
+/// press does not pay the cold-enumeration cost.
+static MIC: std::sync::LazyLock<Option<(cpal::Device, cpal::SupportedStreamConfig)>> =
+    std::sync::LazyLock::new(|| resolve_mic().ok());
+
+/// Pay the cold device-enumeration cost now (app launch) instead of at the
+/// first dictation.
+pub fn prewarm() {
+    let t = Instant::now();
+    match &*MIC {
+        Some((_, cfg)) => logging::log(&format!(
+            "mic prewarm ok ({} Hz, {} ch) in {} ms",
+            cfg.sample_rate().0,
+            cfg.channels(),
+            t.elapsed().as_millis()
+        )),
+        None => logging::log("mic prewarm failed: no microphone found"),
+    }
+}
+
+fn resolve_mic() -> Result<(cpal::Device, cpal::SupportedStreamConfig), String> {
     let host = cpal::default_host();
     let device = host
         .default_input_device()
@@ -46,6 +68,15 @@ pub fn start() -> Result<Recorder, String> {
     let cfg = device
         .default_input_config()
         .map_err(|e| format!("cannot query mic config: {e}"))?;
+    Ok((device, cfg))
+}
+
+pub fn start() -> Result<Recorder, String> {
+    let t = Instant::now();
+    let (device, cfg) = match &*MIC {
+        Some(m) => (m.0.clone(), m.1.clone()),
+        None => return Err("no microphone found".to_string()),
+    };
     let sample_rate = cfg.sample_rate().0;
     let channels = cfg.channels();
     let sample_format = cfg.sample_format();
@@ -90,6 +121,7 @@ pub fn start() -> Result<Recorder, String> {
     .map_err(|e| format!("failed to open mic stream: {e}"))?;
 
     stream.play().map_err(|e| format!("failed to start mic: {e}"))?;
+    logging::log(&format!("mic start: stream+play took {} ms", t.elapsed().as_millis()));
 
     Ok(Recorder {
         stream,
