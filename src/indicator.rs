@@ -495,17 +495,13 @@ fn render() {
             UPDATE_LAYERED_WINDOW_FLAGS(2), // ULW_ALPHA
         );
         ReleaseDC(None, hdc_screen);
-        crate::logging::log(&format!(
-            "indicator render: state={} size={} ulw_ok={}",
-            if state == COLOR_BUSY {
-                "busy"
-            } else if state == COLOR_IDLE {
-                "idle"
-            } else {
-                "rec"
-            },
-            s,
-            ok.is_ok()
-        ));
+        // Log failures only: the spinner re-renders ~30x/s while busy, and
+        // a log write per render (file open+write+close on THIS thread —
+        // the same thread that runs the keyboard hook) can stall it past
+        // the OS low-level-hook timeout. A timed-out hook is bypassed, the
+        // swallowed Win key leaks to the OS, and Win+S opens Search.
+        if let Err(e) = ok {
+            crate::logging::log(&format!("indicator render failed: {e:?}"));
+        }
     }
 }
