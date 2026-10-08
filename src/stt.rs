@@ -27,7 +27,9 @@ pub fn uses_transcriptions_endpoint(model: &str) -> bool {
 pub fn transcribe_wav(wav: &[u8]) -> Result<String, String> {
     let cfg = config::load();
     if cfg.api_key.trim().is_empty() {
-        return Err("API key not configured. Open tray menu > Settings.".into());
+        // The "no-key:" marker lets the tray show the dedicated "API key
+        // missing" balloon regardless of UI language.
+        return Err(format!("no-key: {}", crate::ui::t().err_no_key));
     }
     let mut text = if uses_transcriptions_endpoint(&cfg.model) {
         transcribe_transcriptions(wav, &cfg)?
@@ -97,6 +99,9 @@ fn auth_headers(req: ureq::Request) -> ureq::Request {
         .set("X-Title", "BYOK-STT")
 }
 
+// The retry closure returns ureq::Error by value; boxing it would trade a
+// memcpy for an allocation on the happy path.
+#[allow(clippy::result_large_err)]
 fn transcribe_chat(wav: &[u8], cfg: &config::Config) -> Result<String, String> {
     let b64 = base64::engine::general_purpose::STANDARD.encode(wav);
     // Chat audio models follow instructions, so the prompt becomes an
@@ -131,10 +136,16 @@ fn transcribe_chat(wav: &[u8], cfg: &config::Config) -> Result<String, String> {
     let json: serde_json::Value = resp.into_json().map_err(|e| format!("bad JSON: {e}"))?;
     let text = json["choices"][0]["message"]["content"]
         .as_str()
-        .ok_or_else(|| format!("unexpected response shape: {}", truncate(&json.to_string(), 400)))?;
+        .ok_or_else(|| {
+            format!(
+                "unexpected response shape: {}",
+                truncate(&json.to_string(), 400)
+            )
+        })?;
     Ok(text.trim().trim_matches('"').trim().to_string())
 }
 
+#[allow(clippy::result_large_err)]
 fn transcribe_transcriptions(wav: &[u8], cfg: &config::Config) -> Result<String, String> {
     let boundary = "----byokstt7f3a91c2";
     let mut body = Vec::with_capacity(wav.len() + 512);
@@ -177,9 +188,12 @@ fn transcribe_transcriptions(wav: &[u8], cfg: &config::Config) -> Result<String,
     })?;
 
     let json: serde_json::Value = resp.into_json().map_err(|e| format!("bad JSON: {e}"))?;
-    let text = json["text"]
-        .as_str()
-        .ok_or_else(|| format!("unexpected response shape: {}", truncate(&json.to_string(), 400)))?;
+    let text = json["text"].as_str().ok_or_else(|| {
+        format!(
+            "unexpected response shape: {}",
+            truncate(&json.to_string(), 400)
+        )
+    })?;
     Ok(text.trim().to_string())
 }
 
@@ -193,29 +207,34 @@ fn host_of(url: &str) -> &str {
         .unwrap_or(url)
 }
 
+/// Fill a localized error template ("{host}" / "{code}" placeholders).
+fn fill(tpl: &str, host: &str, code: &str) -> String {
+    tpl.replace("{host}", host).replace("{code}", code)
+}
+
+/// True when the error is the "no API key configured" one.
+pub fn is_no_key_error(e: &str) -> bool {
+    e.starts_with("no-key:")
+}
+
 /// Actionable error text: the balloon is the only thing most users will see.
 fn http_err(host: &str, e: ureq::Error) -> String {
     match e {
-        ureq::Error::Status(401, r) | ureq::Error::Status(403, r) => format!(
-            "{host} rejected the API key (HTTP {}). Open Settings and paste a valid key.",
-            r.status()
+        ureq::Error::Status(401, r) | ureq::Error::Status(403, r) => fill(
+            crate::ui::t().err_key_rejected,
+            host,
+            &r.status().to_string(),
         ),
-        ureq::Error::Status(429, _) => {
-            format!("{host} rate limit reached (HTTP 429). Wait a moment and try again.")
-        }
+        ureq::Error::Status(429, _) => fill(crate::ui::t().err_rate_limited, host, ""),
         ureq::Error::Status(code, r) => {
             let body = r.into_string().unwrap_or_default();
             format!("{host} returned HTTP {code}: {}", truncate(&body, 300))
         }
         ureq::Error::Transport(t) => match t.kind() {
-            ureq::ErrorKind::Io | ureq::ErrorKind::ConnectionFailed => format!(
-                "Cannot reach {host}: the connection timed out or was dropped — the \
-                 request never reached the server. Check your internet connection, \
-                 VPN or proxy; this is a network route issue, not a server outage."
-            ),
-            ureq::ErrorKind::Dns => {
-                format!("Cannot resolve {host}. Check your DNS or internet connection.")
+            ureq::ErrorKind::Io | ureq::ErrorKind::ConnectionFailed => {
+                fill(crate::ui::t().err_unreachable, host, "")
             }
+            ureq::ErrorKind::Dns => fill(crate::ui::t().err_dns, host, ""),
             _ => format!("Network error contacting {host}: {t}"),
         },
     }
@@ -223,7 +242,8 @@ fn http_err(host: &str, e: ureq::Error) -> String {
 
 /// Load a WAV file from disk and transcribe it (used by --test-transcribe).
 pub fn transcribe_file(path: &str) -> Result<String, String> {
-    let mut reader = hound::WavReader::open(path).map_err(|e| format!("cannot open {path}: {e}"))?;
+    let mut reader =
+        hound::WavReader::open(path).map_err(|e| format!("cannot open {path}: {e}"))?;
     let spec = reader.spec();
     if spec.sample_format != hound::SampleFormat::Int || spec.bits_per_sample != 16 {
         return Err("test file must be 16-bit PCM WAV".into());

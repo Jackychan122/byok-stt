@@ -4,22 +4,21 @@ use windows::core::{w, PCWSTR};
 use windows::Win32::Foundation::{COLORREF, HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::Graphics::Gdi::{
     CreateFontW, GetSysColorBrush, SetBkMode, SetTextColor, CLIP_DEFAULT_PRECIS, COLOR_WINDOW,
-    DEFAULT_CHARSET, DEFAULT_QUALITY, FONT_PITCH, FW_NORMAL, HBRUSH, HFONT, HDC,
+    DEFAULT_CHARSET, DEFAULT_QUALITY, FONT_PITCH, FW_NORMAL, HBRUSH, HDC, HFONT,
     OUT_DEFAULT_PRECIS, TRANSPARENT,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::HiDpi::GetDpiForWindow;
 use windows::Win32::UI::Input::KeyboardAndMouse::SetFocus;
 use windows::Win32::UI::WindowsAndMessaging::{
-    BS_AUTOCHECKBOX, BS_DEFPUSHBUTTON, CBS_AUTOHSCROLL, CBS_DROPDOWN, CBS_DROPDOWNLIST,
-    CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, ES_AUTOHSCROLL,
-    ES_AUTOVSCROLL, ES_MULTILINE, ES_PASSWORD, GetDlgItem, GetMessageW, GetSystemMetrics,
-    HMENU, IsDialogMessageW, MB_ICONWARNING, MB_OK, MessageBoxW, MSG, PostQuitMessage,
-    RegisterClassW, SM_CXSCREEN, SM_CYSCREEN, SHOW_WINDOW_CMD, SW_HIDE, SW_SHOW,
-    SendMessageW, SetForegroundWindow, SetWindowTextW, ShowWindow, TranslateMessage,
-    WINDOW_EX_STYLE, WINDOW_STYLE, WINDOW_LONG_PTR_INDEX, WNDCLASSW, WM_CLOSE, WM_COMMAND,
-    WM_CREATE, WM_DESTROY, WM_SETFONT, WS_BORDER, WS_CAPTION, WS_CHILD, WS_OVERLAPPED,
-    WS_SYSMENU, WS_TABSTOP, WS_VISIBLE, WS_VSCROLL,
+    CreateWindowExW, DefWindowProcW, DestroyWindow, DispatchMessageW, GetDlgItem, GetMessageW,
+    GetSystemMetrics, IsDialogMessageW, MessageBoxW, PostQuitMessage, RegisterClassW, SendMessageW,
+    SetForegroundWindow, SetWindowTextW, ShowWindow, TranslateMessage, BS_AUTOCHECKBOX,
+    BS_DEFPUSHBUTTON, CBS_AUTOHSCROLL, CBS_DROPDOWN, CBS_DROPDOWNLIST, ES_AUTOHSCROLL,
+    ES_AUTOVSCROLL, ES_MULTILINE, ES_PASSWORD, HMENU, MB_ICONWARNING, MB_OK, MSG, SHOW_WINDOW_CMD,
+    SM_CXSCREEN, SM_CYSCREEN, SW_HIDE, SW_SHOW, WINDOW_EX_STYLE, WINDOW_LONG_PTR_INDEX,
+    WINDOW_STYLE, WM_CLOSE, WM_COMMAND, WM_CREATE, WM_DESTROY, WM_SETFONT, WNDCLASSW, WS_BORDER,
+    WS_CAPTION, WS_CHILD, WS_OVERLAPPED, WS_SYSMENU, WS_TABSTOP, WS_VISIBLE, WS_VSCROLL,
 };
 
 const IDC_PROMPT_WARN: i32 = 2013;
@@ -73,7 +72,11 @@ const PROVIDERS: &[(&str, &str, &str, &[&str])] = &[
         "Google Gemini",
         "https://generativelanguage.googleapis.com/v1beta/openai",
         "gemini-2.5-flash-lite",
-        &["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"],
+        &[
+            "gemini-2.5-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+        ],
     ),
     (
         "Mistral",
@@ -108,8 +111,8 @@ const PROVIDERS: &[(&str, &str, &str, &[&str])] = &[
 const HK_MODIFIERS: &[&str] = &["Ctrl", "Alt", "Shift", "Win"];
 /// Trigger-key suggestions for the editable hotkey key combo.
 const HK_KEYS: &[&str] = &[
-    "Win", "Space", "A", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q",
-    "R", "S", "T", "U", "V", "X", "Y", "Z", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9",
+    "Win", "Space", "A", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R",
+    "S", "T", "U", "V", "X", "Y", "Z", "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9",
 ];
 
 thread_local! {
@@ -131,7 +134,7 @@ pub fn run_standalone() {
         let mut msg = MSG::default();
         while GetMessageW(&mut msg, None, 0, 0).as_bool() {
             let handled = match dialog_hwnd() {
-                Some(d) => IsDialogMessageW(d, &mut msg).as_bool(),
+                Some(d) => IsDialogMessageW(d, &msg).as_bool(),
                 None => false,
             };
             if !handled {
@@ -168,7 +171,7 @@ pub fn open(parent: HWND) {
         let hwnd = CreateWindowExW(
             WINDOW_EX_STYLE(0),
             class,
-            w!("byok-stt Settings"),
+            PCWSTR(winutil::to_wide(crate::ui::t().settings_title).as_ptr()),
             WINDOW_STYLE(WS_OVERLAPPED.0 | WS_CAPTION.0 | WS_SYSMENU.0),
             (sw - w) / 2,
             (sh - h) / 2,
@@ -188,6 +191,7 @@ pub fn open(parent: HWND) {
     }
 }
 
+#[allow(clippy::too_many_arguments)] // Win32 CreateWindowExW parameter list
 unsafe fn ctl(
     parent: HWND,
     class: PCWSTR,
@@ -218,6 +222,12 @@ unsafe fn ctl(
     }
 }
 
+/// Localized control text as PCWSTR. The Vec lives to the end of the
+/// statement, and CreateWindowExW copies the string during the call.
+unsafe fn lp(text: &str) -> PCWSTR {
+    PCWSTR(winutil::to_wide(text).as_ptr())
+}
+
 fn read_ctl(parent: HWND, id: i32) -> String {
     unsafe {
         let h = match GetDlgItem(parent, id) {
@@ -241,10 +251,8 @@ fn set_ctl(parent: HWND, id: i32, text: &str) {
 
 /// Fill the base URL edit and the model combo from a provider preset.
 fn apply_provider(hwnd: HWND, idx: i32) {
-    let (_, base, default_model, models) = PROVIDERS
-        .get(idx as usize)
-        .copied()
-        .unwrap_or(PROVIDERS[0]);
+    let (_, base, default_model, models) =
+        PROVIDERS.get(idx as usize).copied().unwrap_or(PROVIDERS[0]);
     if !base.is_empty() {
         set_ctl(hwnd, IDC_BASE, base);
     }
@@ -253,7 +261,8 @@ fn apply_provider(hwnd: HWND, idx: i32) {
             let _ = SendMessageW(cb, 0x014B, WPARAM(0), LPARAM(0)); // CB_RESETCONTENT
             for m in models {
                 let wide = winutil::to_wide(m);
-                let _ = SendMessageW(cb, 0x0143, WPARAM(0), LPARAM(wide.as_ptr() as isize)); // CB_ADDSTRING
+                let _ = SendMessageW(cb, 0x0143, WPARAM(0), LPARAM(wide.as_ptr() as isize));
+                // CB_ADDSTRING
             }
         }
     }
@@ -274,7 +283,8 @@ unsafe fn fill_combo(hwnd: HWND, id: i32, items: &[&str], sel_text: &str) {
                 }
             }
             if sel >= 0 {
-                let _ = SendMessageW(cb, 0x014E, WPARAM(sel as usize), LPARAM(0)); // CB_SETCURSEL
+                let _ = SendMessageW(cb, 0x014E, WPARAM(sel as usize), LPARAM(0));
+            // CB_SETCURSEL
             } else if !sel_text.is_empty() {
                 set_ctl(hwnd, id, sel_text);
             }
@@ -321,37 +331,293 @@ unsafe extern "system" fn settings_proc(
                 WINDOW_STYLE(CBS_DROPDOWN as u32 | CBS_AUTOHSCROLL as u32 | WS_TABSTOP.0);
             let check = WINDOW_STYLE(BS_AUTOCHECKBOX as u32 | WS_TABSTOP.0);
 
-            let l1 = ctl(hwnd, w!("STATIC"), label, px(12), px(19), px(84), px(16), 0, w!("Provider:"));
-            let prov = ctl(hwnd, w!("COMBOBOX"), combo_list, px(100), px(16), px(356), px(180), IDC_PROVIDER, PCWSTR::null());
-            let l2 = ctl(hwnd, w!("STATIC"), label, px(12), px(51), px(84), px(16), 0, w!("API base URL:"));
-            let base = ctl(hwnd, w!("EDIT"), edit, px(100), px(48), px(356), px(22), IDC_BASE, PCWSTR::null());
-            let l3 = ctl(hwnd, w!("STATIC"), label, px(12), px(83), px(84), px(16), 0, w!("API key:"));
-            let key = ctl(hwnd, w!("EDIT"), WINDOW_STYLE(edit.0 | ES_PASSWORD as u32), px(100), px(80), px(356), px(22), IDC_KEY, PCWSTR::null());
-            let l4 = ctl(hwnd, w!("STATIC"), label, px(12), px(115), px(84), px(16), 0, w!("Model:"));
-            let model = ctl(hwnd, w!("COMBOBOX"), combo_edit, px(100), px(112), px(356), px(180), IDC_MODEL, PCWSTR::null());
-            let l_prompt = ctl(hwnd, w!("STATIC"), label, px(12), px(146), px(84), px(16), 0, w!("Prompt:"));
+            let l1 = ctl(
+                hwnd,
+                w!("STATIC"),
+                label,
+                px(12),
+                px(19),
+                px(84),
+                px(16),
+                0,
+                lp(crate::ui::t().provider),
+            );
+            let prov = ctl(
+                hwnd,
+                w!("COMBOBOX"),
+                combo_list,
+                px(100),
+                px(16),
+                px(356),
+                px(180),
+                IDC_PROVIDER,
+                PCWSTR::null(),
+            );
+            let l2 = ctl(
+                hwnd,
+                w!("STATIC"),
+                label,
+                px(12),
+                px(51),
+                px(84),
+                px(16),
+                0,
+                lp(crate::ui::t().api_base),
+            );
+            let base = ctl(
+                hwnd,
+                w!("EDIT"),
+                edit,
+                px(100),
+                px(48),
+                px(356),
+                px(22),
+                IDC_BASE,
+                PCWSTR::null(),
+            );
+            let l3 = ctl(
+                hwnd,
+                w!("STATIC"),
+                label,
+                px(12),
+                px(83),
+                px(84),
+                px(16),
+                0,
+                lp(crate::ui::t().api_key),
+            );
+            let key = ctl(
+                hwnd,
+                w!("EDIT"),
+                WINDOW_STYLE(edit.0 | ES_PASSWORD as u32),
+                px(100),
+                px(80),
+                px(356),
+                px(22),
+                IDC_KEY,
+                PCWSTR::null(),
+            );
+            let l4 = ctl(
+                hwnd,
+                w!("STATIC"),
+                label,
+                px(12),
+                px(115),
+                px(84),
+                px(16),
+                0,
+                lp(crate::ui::t().model),
+            );
+            let model = ctl(
+                hwnd,
+                w!("COMBOBOX"),
+                combo_edit,
+                px(100),
+                px(112),
+                px(356),
+                px(180),
+                IDC_MODEL,
+                PCWSTR::null(),
+            );
+            let l_prompt = ctl(
+                hwnd,
+                w!("STATIC"),
+                label,
+                px(12),
+                px(146),
+                px(84),
+                px(16),
+                0,
+                lp(crate::ui::t().prompt),
+            );
             let prompt = ctl(
                 hwnd,
                 w!("EDIT"),
-                WINDOW_STYLE((ES_MULTILINE | ES_AUTOVSCROLL) as u32 | WS_VSCROLL.0 | WS_TABSTOP.0 | WS_BORDER.0),
-                px(100), px(143), px(356), px(44), IDC_PROMPT, PCWSTR::null(),
+                WINDOW_STYLE(
+                    (ES_MULTILINE | ES_AUTOVSCROLL) as u32
+                        | WS_VSCROLL.0
+                        | WS_TABSTOP.0
+                        | WS_BORDER.0,
+                ),
+                px(100),
+                px(143),
+                px(356),
+                px(44),
+                IDC_PROMPT,
+                PCWSTR::null(),
             );
-            let prompt_warn = ctl(hwnd, w!("STATIC"), label, px(100), px(190), px(356), px(30), IDC_PROMPT_WARN, w!("This provider ignores the prompt for file models (whisper etc.) — it still works with OpenAI, Groq, self-hosted endpoints and chat audio models."));
-            let hint = ctl(hwnd, w!("STATIC"), label, px(12), px(224), px(444), px(30), IDC_HINT, w!("File models (whisper / voxtral / *-transcribe / scribe / asr) use /audio/transcriptions; others use /chat/completions with inline audio."));
+            let warn_txt = winutil::to_wide(crate::ui::t().prompt_warn);
+            let prompt_warn = ctl(
+                hwnd,
+                w!("STATIC"),
+                label,
+                px(100),
+                px(190),
+                px(356),
+                px(30),
+                IDC_PROMPT_WARN,
+                PCWSTR(warn_txt.as_ptr()),
+            );
+            let hint_txt = winutil::to_wide(crate::ui::t().hint);
+            let hint = ctl(
+                hwnd,
+                w!("STATIC"),
+                label,
+                px(12),
+                px(224),
+                px(444),
+                px(30),
+                IDC_HINT,
+                PCWSTR(hint_txt.as_ptr()),
+            );
 
-            let l5 = ctl(hwnd, w!("STATIC"), label, px(12), px(260), px(84), px(16), 0, w!("Hotkey:"));
-            let hk_mod = ctl(hwnd, w!("COMBOBOX"), combo_list, px(100), px(257), px(90), px(180), IDC_HK_MOD, PCWSTR::null());
-            let plus = ctl(hwnd, w!("STATIC"), label, px(194), px(260), px(12), px(16), 0, w!("+"));
-            let hk_key = ctl(hwnd, w!("COMBOBOX"), combo_edit, px(210), px(257), px(110), px(180), IDC_HK_KEY, PCWSTR::null());
-            let always = ctl(hwnd, w!("BUTTON"), check, px(100), px(286), px(236), px(18), IDC_ALWAYS, w!("Keep indicator bubble always visible"));
-            let lmr = ctl(hwnd, w!("STATIC"), label, px(344), px(286), px(48), px(16), 0, w!("Max rec:"));
-            let maxrec = ctl(hwnd, w!("EDIT"), edit, px(394), px(286), px(62), px(20), IDC_MAXREC, PCWSTR::null());
-            let autostart = ctl(hwnd, w!("BUTTON"), check, px(100), px(310), px(300), px(18), IDC_AUTOSTART, w!("Start byok-stt when Windows starts"));
-            let s2t = ctl(hwnd, w!("BUTTON"), check, px(100), px(334), px(300), px(18), IDC_S2T, w!("Convert output to Traditional Chinese (简→繁)"));
+            let l5 = ctl(
+                hwnd,
+                w!("STATIC"),
+                label,
+                px(12),
+                px(260),
+                px(84),
+                px(16),
+                0,
+                lp(crate::ui::t().hotkey),
+            );
+            let hk_mod = ctl(
+                hwnd,
+                w!("COMBOBOX"),
+                combo_list,
+                px(100),
+                px(257),
+                px(90),
+                px(180),
+                IDC_HK_MOD,
+                PCWSTR::null(),
+            );
+            let plus = ctl(
+                hwnd,
+                w!("STATIC"),
+                label,
+                px(194),
+                px(260),
+                px(12),
+                px(16),
+                0,
+                w!("+"),
+            );
+            let hk_key = ctl(
+                hwnd,
+                w!("COMBOBOX"),
+                combo_edit,
+                px(210),
+                px(257),
+                px(110),
+                px(180),
+                IDC_HK_KEY,
+                PCWSTR::null(),
+            );
+            let always = ctl(
+                hwnd,
+                w!("BUTTON"),
+                check,
+                px(100),
+                px(286),
+                px(236),
+                px(18),
+                IDC_ALWAYS,
+                lp(crate::ui::t().always_visible),
+            );
+            let lmr = ctl(
+                hwnd,
+                w!("STATIC"),
+                label,
+                px(344),
+                px(286),
+                px(48),
+                px(16),
+                0,
+                lp(crate::ui::t().max_rec),
+            );
+            let maxrec = ctl(
+                hwnd,
+                w!("EDIT"),
+                edit,
+                px(394),
+                px(286),
+                px(62),
+                px(20),
+                IDC_MAXREC,
+                PCWSTR::null(),
+            );
+            let autostart = ctl(
+                hwnd,
+                w!("BUTTON"),
+                check,
+                px(100),
+                px(310),
+                px(300),
+                px(18),
+                IDC_AUTOSTART,
+                lp(crate::ui::t().autostart),
+            );
+            let s2t = ctl(
+                hwnd,
+                w!("BUTTON"),
+                check,
+                px(100),
+                px(334),
+                px(300),
+                px(18),
+                IDC_S2T,
+                lp(crate::ui::t().s2t),
+            );
 
-            let save = ctl(hwnd, w!("BUTTON"), WINDOW_STYLE(BS_DEFPUSHBUTTON as u32 | WS_TABSTOP.0), px(288), px(364), px(80), px(28), IDC_SAVE, w!("Save"));
-            let cancel = ctl(hwnd, w!("BUTTON"), WINDOW_STYLE(WS_TABSTOP.0 as u32), px(376), px(364), px(80), px(28), IDC_CANCEL, w!("Cancel"));
-            for h in [l1, prov, l2, base, l3, key, l4, model, l_prompt, prompt, prompt_warn, hint, l5, hk_mod, plus, hk_key, always, lmr, maxrec, autostart, s2t, save, cancel] {
+            let save = ctl(
+                hwnd,
+                w!("BUTTON"),
+                WINDOW_STYLE(BS_DEFPUSHBUTTON as u32 | WS_TABSTOP.0),
+                px(288),
+                px(364),
+                px(80),
+                px(28),
+                IDC_SAVE,
+                lp(crate::ui::t().save),
+            );
+            let cancel = ctl(
+                hwnd,
+                w!("BUTTON"),
+                WINDOW_STYLE(WS_TABSTOP.0),
+                px(376),
+                px(364),
+                px(80),
+                px(28),
+                IDC_CANCEL,
+                lp(crate::ui::t().cancel),
+            );
+            for h in [
+                l1,
+                prov,
+                l2,
+                base,
+                l3,
+                key,
+                l4,
+                model,
+                l_prompt,
+                prompt,
+                prompt_warn,
+                hint,
+                l5,
+                hk_mod,
+                plus,
+                hk_key,
+                always,
+                lmr,
+                maxrec,
+                autostart,
+                s2t,
+                save,
+                cancel,
+            ] {
                 apply(h);
             }
 
@@ -364,7 +630,8 @@ unsafe extern "system" fn settings_proc(
                 .unwrap_or(PROVIDERS.len() - 1) as i32;
             for (name, _, _, _) in PROVIDERS {
                 let wide = winutil::to_wide(name);
-                let _ = SendMessageW(prov, 0x0143, WPARAM(0), LPARAM(wide.as_ptr() as isize)); // CB_ADDSTRING
+                let _ = SendMessageW(prov, 0x0143, WPARAM(0), LPARAM(wide.as_ptr() as isize));
+                // CB_ADDSTRING
             }
             let _ = SendMessageW(prov, 0x014E, WPARAM(idx as usize), LPARAM(0)); // CB_SETCURSEL
             apply_provider(hwnd, idx);
@@ -380,13 +647,17 @@ unsafe extern "system" fn settings_proc(
             set_ctl(hwnd, IDC_PROMPT, cfg.stt_prompt.trim());
 
             // Hotkey combos (macOS "cmd" shows as Win; parser maps them together).
-            let mod_disp = if cfg.hotkey_modifier.eq_ignore_ascii_case("cmd") { "Win" } else { &cfg.hotkey_modifier };
+            let mod_disp = if cfg.hotkey_modifier.eq_ignore_ascii_case("cmd") {
+                "Win"
+            } else {
+                &cfg.hotkey_modifier
+            };
             fill_combo(hwnd, IDC_HK_MOD, HK_MODIFIERS, mod_disp);
             fill_combo(hwnd, IDC_HK_KEY, HK_KEYS, &cfg.hotkey_key);
             set_ctl(hwnd, IDC_MAXREC, &cfg.max_recording_secs.to_string());
             let _ = SendMessageW(
                 GetDlgItem(hwnd, IDC_ALWAYS).unwrap_or_default(),
-                0x00F1, // BM_SETCHECK
+                0x00F1,                                         // BM_SETCHECK
                 WPARAM(cfg.bubble_always_visible as usize * 2), // BST_CHECKED
                 LPARAM(0),
             );
@@ -510,12 +781,7 @@ fn on_save(hwnd: HWND) {
             unsafe {
                 let _ = MessageBoxW(
                     hwnd,
-                    PCWSTR(
-                        winutil::to_wide(
-                            "Max recording must be a number of seconds between 5 and 3600.",
-                        )
-                        .as_ptr(),
-                    ),
+                    PCWSTR(winutil::to_wide(crate::ui::t().err_maxrec).as_ptr()),
                     w!("byok-stt"),
                     MB_OK | MB_ICONWARNING,
                 );
@@ -527,7 +793,7 @@ fn on_save(hwnd: HWND) {
         unsafe {
             let _ = MessageBoxW(
                 hwnd,
-                PCWSTR(winutil::to_wide("API key must not be empty.").as_ptr()),
+                PCWSTR(winutil::to_wide(crate::ui::t().err_key_empty).as_ptr()),
                 w!("byok-stt"),
                 MB_OK | MB_ICONWARNING,
             );
@@ -538,12 +804,7 @@ fn on_save(hwnd: HWND) {
         unsafe {
             let _ = MessageBoxW(
                 hwnd,
-                PCWSTR(
-                    winutil::to_wide(
-                        "API base URL must start with https:// (e.g. https://openrouter.ai/api/v1).",
-                    )
-                    .as_ptr(),
-                ),
+                PCWSTR(winutil::to_wide(crate::ui::t().err_base).as_ptr()),
                 w!("byok-stt"),
                 MB_OK | MB_ICONWARNING,
             );
@@ -554,12 +815,7 @@ fn on_save(hwnd: HWND) {
         unsafe {
             let _ = MessageBoxW(
                 hwnd,
-                PCWSTR(
-                    winutil::to_wide(
-                        "Hotkey modifier must be Ctrl, Alt, Shift or Win.",
-                    )
-                    .as_ptr(),
-                ),
+                PCWSTR(winutil::to_wide(crate::ui::t().err_hkmod).as_ptr()),
                 w!("byok-stt"),
                 MB_OK | MB_ICONWARNING,
             );
@@ -570,12 +826,7 @@ fn on_save(hwnd: HWND) {
         unsafe {
             let _ = MessageBoxW(
                 hwnd,
-                PCWSTR(
-                    winutil::to_wide(
-                        "Hotkey key must be Win, Space, a letter, a digit or F1-F12.",
-                    )
-                    .as_ptr(),
-                ),
+                PCWSTR(winutil::to_wide(crate::ui::t().err_hkkey).as_ptr()),
                 w!("byok-stt"),
                 MB_OK | MB_ICONWARNING,
             );
@@ -592,6 +843,7 @@ fn on_save(hwnd: HWND) {
                 m.to_string()
             }
         },
+        ui_lang: config::load().ui_lang,
         api_base: base,
         stt_prompt: prompt,
         bubble_always_visible: always,
@@ -605,10 +857,7 @@ fn on_save(hwnd: HWND) {
         unsafe {
             let _ = MessageBoxW(
                 hwnd,
-                PCWSTR(
-                    winutil::to_wide(&format!("Could not update the startup entry: {e}"))
-                        .as_ptr(),
-                ),
+                PCWSTR(winutil::to_wide(&crate::ui::t().err_autostart.replace("{e}", &e)).as_ptr()),
                 w!("byok-stt"),
                 MB_OK | MB_ICONWARNING,
             );
@@ -636,10 +885,11 @@ fn on_save(hwnd: HWND) {
                     }
                 };
                 crate::tray::balloon_main(
-                    "You're all set!",
-                    &format!(
-                        "Hold {mod_disp}+{key_disp} and speak — your words are typed automatically."
-                    ),
+                    crate::ui::t().all_set_title,
+                    &crate::ui::t()
+                        .all_set_msg
+                        .replace("{m}", &mod_disp)
+                        .replace("{k}", &key_disp),
                 );
             }
             let _ = DestroyWindow(hwnd);
@@ -647,7 +897,10 @@ fn on_save(hwnd: HWND) {
         Err(e) => unsafe {
             let _ = MessageBoxW(
                 hwnd,
-                PCWSTR(winutil::to_wide(&format!("Failed to save config: {e}")).as_ptr()),
+                PCWSTR(
+                    winutil::to_wide(&crate::ui::t().err_save_cfg.replace("{e}", &e.to_string()))
+                        .as_ptr(),
+                ),
                 w!("byok-stt"),
                 MB_OK | MB_ICONWARNING,
             );

@@ -6,19 +6,17 @@ use windows::core::{w, PCWSTR};
 use windows::Win32::Foundation::{HINSTANCE, HMODULE, HWND, LPARAM, LRESULT, POINT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Shell::{
-    Shell_NotifyIconW, NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIM_ADD, NIM_DELETE, NIM_MODIFY,
-    NIIF_ERROR, NIIF_INFO, NOTIFYICONDATAW,
+    Shell_NotifyIconW, NIF_ICON, NIF_INFO, NIF_MESSAGE, NIF_TIP, NIIF_ERROR, NIIF_INFO, NIM_ADD,
+    NIM_DELETE, NIM_MODIFY, NOTIFYICONDATAW,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    AppendMenuW, CallNextHookEx, CreatePopupMenu, CreateWindowExW, DefWindowProcW,
-    DispatchMessageW, DestroyMenu, FindWindowW,
-    DestroyWindow, GetMessageW, GetCursorPos, IsDialogMessageW, IsWindow, KillTimer,
-    PostMessageW,
-    RegisterClassW, SetForegroundWindow, SetTimer, SetWindowsHookExW, TrackPopupMenu,
-    TranslateMessage, UnhookWindowsHookEx, HHOOK, HMENU, KBDLLHOOKSTRUCT, MENU_ITEM_FLAGS, MSG,
-    TPM_NONOTIFY, TPM_RETURNCMD, TPM_RIGHTBUTTON, WH_KEYBOARD_LL, WINDOW_EX_STYLE, WINDOW_STYLE,
-    WNDCLASSW, WM_APP, WM_KEYDOWN, WM_LBUTTONUP, WM_RBUTTONUP, WM_SYSKEYDOWN,
-    WM_TIMER, WS_OVERLAPPED,
+    AppendMenuW, CallNextHookEx, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu,
+    DestroyWindow, DispatchMessageW, FindWindowW, GetCursorPos, GetMessageW, IsDialogMessageW,
+    IsWindow, KillTimer, PostMessageW, RegisterClassW, SetForegroundWindow, SetTimer,
+    SetWindowsHookExW, TrackPopupMenu, TranslateMessage, UnhookWindowsHookEx, HHOOK, HMENU,
+    KBDLLHOOKSTRUCT, MENU_ITEM_FLAGS, MSG, TPM_NONOTIFY, TPM_RETURNCMD, TPM_RIGHTBUTTON,
+    WH_KEYBOARD_LL, WINDOW_EX_STYLE, WINDOW_STYLE, WM_APP, WM_KEYDOWN, WM_LBUTTONUP, WM_RBUTTONUP,
+    WM_SYSKEYDOWN, WM_TIMER, WNDCLASSW, WS_OVERLAPPED,
 };
 
 use crate::{audio, config, indicator, logging, settings, stt, winutil};
@@ -40,8 +38,10 @@ const IDLE_ICO: &[u8] = include_bytes!("../assets/idle.ico");
 const REC_ICO: &[u8] = include_bytes!("../assets/rec.ico");
 const BUSY_ICO: &[u8] = include_bytes!("../assets/busy.ico");
 static MAIN_HWND: AtomicUsize = AtomicUsize::new(0);
-static MOD_ID: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(crate::hotkey::MOD_CTRL);
-static KEY_VK: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(crate::hotkey::VK_LWIN);
+static MOD_ID: std::sync::atomic::AtomicU8 =
+    std::sync::atomic::AtomicU8::new(crate::hotkey::MOD_CTRL);
+static KEY_VK: std::sync::atomic::AtomicU16 =
+    std::sync::atomic::AtomicU16::new(crate::hotkey::VK_LWIN);
 static MOD_DOWN: AtomicBool = AtomicBool::new(false);
 static KEY_DOWN: AtomicBool = AtomicBool::new(false);
 static IN_SESSION: AtomicBool = AtomicBool::new(false);
@@ -54,7 +54,7 @@ enum Phase {
 }
 
 thread_local! {
-    static PHASE: RefCell<Phase> = RefCell::new(Phase::Idle);
+    static PHASE: RefCell<Phase> = const { RefCell::new(Phase::Idle) };
 }
 
 pub fn run() {
@@ -99,7 +99,12 @@ pub fn run() {
             HINSTANCE(hinstance.0),
             None,
         )
-        .map_err(|e| format!("CreateWindowExW failed: {e:?} + GetLastError={:?}", windows::Win32::Foundation::GetLastError()))
+        .map_err(|e| {
+            format!(
+                "CreateWindowExW failed: {e:?} + GetLastError={:?}",
+                windows::Win32::Foundation::GetLastError()
+            )
+        })
         .expect("create main window");
         MAIN_HWND.store(hwnd.0 as usize, Ordering::Relaxed);
 
@@ -114,8 +119,8 @@ pub fn run() {
             settings::open(hwnd);
             balloon(
                 hwnd,
-                "Welcome to byok-stt",
-                "Paste your API key, pick a model and press Save to start dictating.",
+                crate::ui::t().welcome_title,
+                crate::ui::t().welcome_msg,
                 false,
             );
         }
@@ -135,7 +140,7 @@ pub fn run() {
             }
             // Settings window (when open) gets Tab/Enter dialog navigation.
             let handled = match crate::settings::dialog_hwnd() {
-                Some(d) => IsDialogMessageW(d, &mut msg).as_bool(),
+                Some(d) => IsDialogMessageW(d, &msg).as_bool(),
                 None => false,
             };
             if !handled {
@@ -237,7 +242,7 @@ pub fn balloon_main(title: &str, msg: &str) {
         balloon(HWND(hwnd as *mut core::ffi::c_void), title, msg, false);
     }
 }
- 
+
 fn post_main(msg: u32) {
     let hwnd = MAIN_HWND.load(Ordering::Relaxed);
     if hwnd != 0 {
@@ -252,7 +257,12 @@ fn post_main(msg: u32) {
     }
 }
 
-unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+unsafe extern "system" fn wnd_proc(
+    hwnd: HWND,
+    msg: u32,
+    wparam: WPARAM,
+    lparam: LPARAM,
+) -> LRESULT {
     crate::logging::log(&format!("main wnd_proc msg=0x{msg:04X}"));
     match msg {
         WM_TIMER => {
@@ -278,8 +288,8 @@ unsafe extern "system" fn wnd_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam:
         WMAPP_PING => {
             balloon(
                 hwnd,
-                "byok-stt is already running",
-                "Hold the hotkey to dictate, or right-click the microphone icon in the system tray (it may be inside the ^ hidden-icons overflow).",
+                crate::ui::t().already_title,
+                crate::ui::t().already_msg,
                 false,
             );
             LRESULT(0)
@@ -335,7 +345,7 @@ fn on_start(hwnd: HWND) {
             }
             Err(e) => {
                 logging::log(&format!("mic error: {e}"));
-                balloon(hwnd, "Microphone error", &e, true);
+                balloon(hwnd, crate::ui::t().mic_error, &e, true);
             }
         }
     });
@@ -351,7 +361,7 @@ fn on_stop(hwnd: HWND) {
                     logging::log(&format!("record stop error: {e}"));
                     set_icon(hwnd, IDLE_ICO, "idle");
                     indicator::hide();
-                    balloon(hwnd, "Recording error", &e, true);
+                    balloon(hwnd, crate::ui::t().rec_error, &e, true);
                 }
                 Ok((wav, dur)) => {
                     if dur < MIN_REC {
@@ -396,17 +406,24 @@ fn on_result(hwnd: HWND, lparam: LPARAM) {
     match *result {
         Ok(text) => {
             if text.is_empty() {
-                balloon(hwnd, "Transcription empty", "The model returned no text.", true);
+                balloon(
+                    hwnd,
+                    crate::ui::t().empty_title,
+                    crate::ui::t().empty_msg,
+                    true,
+                );
                 return;
             }
+            let backup = winutil::backup_clipboard();
             match winutil::set_clipboard_text(&text) {
                 Ok(()) => {
                     std::thread::sleep(Duration::from_millis(60));
                     winutil::send_paste();
+                    winutil::restore_clipboard_later(winutil::clipboard_guard(text, backup));
                 }
                 Err(e) => {
                     logging::log(&format!("clipboard error: {e}"));
-                    balloon(hwnd, "Clipboard error", &e, true);
+                    balloon(hwnd, crate::ui::t().clip_error, &e, true);
                 }
             }
         }
@@ -415,19 +432,19 @@ fn on_result(hwnd: HWND, lparam: LPARAM) {
             if e.contains("401") {
                 balloon(
                     hwnd,
-                    "Invalid API key",
-                    "The provider rejected the API key (HTTP 401). Update it in tray > Settings.",
+                    crate::ui::t().key_invalid_title,
+                    crate::ui::t().key_invalid_msg,
                     true,
                 );
-            } else if e.contains("not configured") {
+            } else if crate::stt::is_no_key_error(&e) {
                 balloon(
                     hwnd,
-                    "API key missing",
-                    "Add your provider API key in tray > Settings.",
+                    crate::ui::t().key_missing_title,
+                    crate::ui::t().key_missing_msg,
                     true,
                 );
             } else {
-                balloon(hwnd, "Transcription failed", &e, true);
+                balloon(hwnd, crate::ui::t().failed_title, &e, true);
             }
         }
     }
@@ -446,8 +463,8 @@ fn on_tray(hwnd: HWND, lparam: LPARAM) {
         } else {
             balloon(
                 hwnd,
-                "Still transcribing",
-                "Wait for the current transcription to finish.",
+                crate::ui::t().busy_title,
+                crate::ui::t().busy_msg,
                 false,
             );
         }
@@ -460,9 +477,19 @@ fn on_tray(hwnd: HWND, lparam: LPARAM) {
         let mut pt = POINT::default();
         let _ = GetCursorPos(&mut pt);
         let hmenu = CreatePopupMenu().expect("CreatePopupMenu");
-        let _ = AppendMenuW(hmenu, MENU_ITEM_FLAGS(MF_STRING), ID_SETTINGS as usize, w!("Settings"));
+        let _ = AppendMenuW(
+            hmenu,
+            MENU_ITEM_FLAGS(MF_STRING),
+            ID_SETTINGS as usize,
+            PCWSTR(winutil::to_wide(crate::ui::t().menu_settings).as_ptr()),
+        );
         let _ = AppendMenuW(hmenu, MENU_ITEM_FLAGS(MF_SEPARATOR), 0, PCWSTR::null());
-        let _ = AppendMenuW(hmenu, MENU_ITEM_FLAGS(MF_STRING), ID_EXIT as usize, w!("Exit"));
+        let _ = AppendMenuW(
+            hmenu,
+            MENU_ITEM_FLAGS(MF_STRING),
+            ID_EXIT as usize,
+            PCWSTR(winutil::to_wide(crate::ui::t().menu_exit).as_ptr()),
+        );
         let _ = SetForegroundWindow(hwnd);
         let cmd = TrackPopupMenu(
             hmenu,
@@ -489,13 +516,15 @@ const MF_SEPARATOR: u32 = 0x0000_0800;
 
 fn add_tray_icon(hwnd: HWND, ico: &'static [u8]) {
     unsafe {
-        let mut nid = NOTIFYICONDATAW::default();
-        nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
-        nid.hWnd = hwnd;
-        nid.uID = 1;
-        nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP;
-        nid.uCallbackMessage = WMAPP_TRAY;
-        nid.hIcon = winutil::load_icon(ico);
+        let mut nid = NOTIFYICONDATAW {
+            cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
+            hWnd: hwnd,
+            uID: 1,
+            uFlags: NIF_MESSAGE | NIF_ICON | NIF_TIP,
+            uCallbackMessage: WMAPP_TRAY,
+            hIcon: winutil::load_icon(ico),
+            ..Default::default()
+        };
         set_utf16(&mut nid.szTip, "byok-stt: hold the hotkey to dictate");
         let ok = Shell_NotifyIconW(NIM_ADD, &nid);
         logging::log(&format!("tray icon add: {}", ok.as_bool()));
@@ -504,22 +533,26 @@ fn add_tray_icon(hwnd: HWND, ico: &'static [u8]) {
 
 fn remove_tray_icon(hwnd: HWND) {
     unsafe {
-        let mut nid = NOTIFYICONDATAW::default();
-        nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
-        nid.hWnd = hwnd;
-        nid.uID = 1;
+        let nid = NOTIFYICONDATAW {
+            cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
+            hWnd: hwnd,
+            uID: 1,
+            ..Default::default()
+        };
         let _ = Shell_NotifyIconW(NIM_DELETE, &nid);
     }
 }
 
 fn set_icon(hwnd: HWND, ico: &'static [u8], state: &str) {
     unsafe {
-        let mut nid = NOTIFYICONDATAW::default();
-        nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
-        nid.hWnd = hwnd;
-        nid.uID = 1;
-        nid.uFlags = NIF_ICON;
-        nid.hIcon = winutil::load_icon(ico);
+        let nid = NOTIFYICONDATAW {
+            cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
+            hWnd: hwnd,
+            uID: 1,
+            uFlags: NIF_ICON,
+            hIcon: winutil::load_icon(ico),
+            ..Default::default()
+        };
         let ok = Shell_NotifyIconW(NIM_MODIFY, &nid);
         logging::log(&format!("tray icon state -> {state}: {}", ok.as_bool()));
     }
@@ -527,12 +560,14 @@ fn set_icon(hwnd: HWND, ico: &'static [u8], state: &str) {
 
 fn balloon(hwnd: HWND, title: &str, msg: &str, error: bool) {
     unsafe {
-        let mut nid = NOTIFYICONDATAW::default();
-        nid.cbSize = std::mem::size_of::<NOTIFYICONDATAW>() as u32;
-        nid.hWnd = hwnd;
-        nid.uID = 1;
-        nid.uFlags = NIF_INFO;
-        nid.dwInfoFlags = if error { NIIF_ERROR } else { NIIF_INFO };
+        let mut nid = NOTIFYICONDATAW {
+            cbSize: std::mem::size_of::<NOTIFYICONDATAW>() as u32,
+            hWnd: hwnd,
+            uID: 1,
+            uFlags: NIF_INFO,
+            dwInfoFlags: if error { NIIF_ERROR } else { NIIF_INFO },
+            ..Default::default()
+        };
         set_utf16(&mut nid.szInfoTitle, title);
         set_utf16(&mut nid.szInfo, msg);
         let _ = Shell_NotifyIconW(NIM_MODIFY, &nid);

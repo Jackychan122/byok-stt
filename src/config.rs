@@ -33,33 +33,38 @@ pub struct Config {
     /// Launch byok-stt when Windows starts (HKCU Run entry).
     #[serde(default)]
     pub start_with_windows: bool,
+    /// UI language override: "auto" (Windows UI language, any Chinese
+    /// locale -> Traditional) | "en" | "zh-hk".
+    #[serde(default = "default_ui_lang")]
+    pub ui_lang: String,
 }
- 
- fn default_api_base() -> String {
-     "https://openrouter.ai/api/v1".into()
- }
+
+fn default_api_base() -> String {
+    "https://openrouter.ai/api/v1".into()
+}
+
+fn default_ui_lang() -> String {
+    "auto".into()
+}
 
 fn default_max_recording_secs() -> u32 {
     120
 }
 fn default_hotkey_modifier() -> String {
-    // Windows: Ctrl+Win. macOS: Cmd+Space. Linux: Ctrl+Space.
+    // Windows/Linux: Ctrl+Win / Ctrl+Space. macOS: Cmd+Space.
     if cfg!(target_os = "macos") {
         "cmd".into()
-    } else if cfg!(target_os = "linux") {
-        "ctrl".into()
     } else {
         "ctrl".into()
     }
 }
 
 fn default_hotkey_key() -> String {
-    if cfg!(target_os = "macos") {
-        "space".into()
-    } else if cfg!(target_os = "linux") {
-        "space".into()
-    } else {
+    // Windows: Ctrl+Win. macOS/Linux: Cmd/Ctrl+Space.
+    if cfg!(target_os = "windows") {
         "win".into()
+    } else {
+        "space".into()
     }
 }
 
@@ -75,6 +80,7 @@ impl Default for Config {
             max_recording_secs: default_max_recording_secs(),
             stt_prompt: String::new(),
             convert_to_traditional: false,
+            ui_lang: default_ui_lang(),
             start_with_windows: false,
         }
     }
@@ -127,17 +133,21 @@ mod tests {
         assert_eq!(c.api_base, "https://openrouter.ai/api/v1");
         assert!(!c.bubble_always_visible);
         assert_eq!(c.hotkey_modifier, "ctrl");
-        assert_eq!(c.hotkey_key, if cfg!(target_os = "macos") { "space" } else { "win" });
+        assert_eq!(
+            c.hotkey_key,
+            if cfg!(target_os = "macos") {
+                "space"
+            } else {
+                "win"
+            }
+        );
         assert_eq!(c.max_recording_secs, 120);
     }
 
     #[test]
     fn missing_fields_fall_back_to_defaults() {
         // An old config.json (pre api_base/hotkey options) must still parse.
-        let c: Config = serde_json::from_str(
-            r#"{"api_key": "k", "model": "m"}"#,
-        )
-        .unwrap();
+        let c: Config = serde_json::from_str(r#"{"api_key": "k", "model": "m"}"#).unwrap();
         assert_eq!(c.api_base, "https://openrouter.ai/api/v1");
         assert_eq!(c.hotkey_modifier, "ctrl");
         assert_eq!(c.max_recording_secs, 120);
@@ -156,6 +166,7 @@ mod tests {
             stt_prompt: "廣東話口語".into(),
             convert_to_traditional: true,
             start_with_windows: true,
+            ui_lang: "auto".into(),
         };
         let json = serde_json::to_string(&c).unwrap();
         let back: Config = serde_json::from_str(&json).unwrap();

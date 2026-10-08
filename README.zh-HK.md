@@ -79,6 +79,7 @@ Mistral、ElevenLabs，甚至你自架的端點。你只需帶上 API 金鑰，�
 | Hotkey | Ctrl+Win | 修飾鍵（Ctrl/Alt/Shift/Win）+ 按鍵（Space、A–Z、0–9、F1–F12）|
 | 常駐顯示氣泡 | 關 | 灰色閒置氣泡固定在螢幕上 |
 | 最長錄音（秒）| 120 | 5–3600；看門狗會自動停止過長錄音 |
+| 介面語言 | 自動 | 繁體中文（香港）或英文；跟隨 Windows 顯示語言，亦可喺 config.json 設 `"ui_lang": "en"` / `"zh-hk"` |
 
 ## Provider 與模型
 

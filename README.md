@@ -83,6 +83,7 @@ thing is a single ~1 MB executable.
 | Hotkey | Ctrl+Win | Modifier (Ctrl/Alt/Shift/Win) + key (Space, A–Z, 0–9, F1–F12) |
 | Keep bubble always visible | off | Gray idle bubble pinned on screen |
 | Max recording (s) | 120 | 5–3600; a watchdog stops long sessions |
+| Language | auto | UI text in English or Traditional Chinese (Hong Kong); follows the Windows UI language, or set `"ui_lang": "en"` / `"zh-hk"` in config.json |
 
 ## Providers & models
 

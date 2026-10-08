@@ -11,6 +11,25 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/); versions
   press, and the process opts out of Windows power throttling (EcoQoS) so an
   idle tray app is never slowed down before the first dictation.
 
+### Added
+- UI localization: Traditional Chinese (Hong Kong) interface — settings
+  window, tray menu, balloons and error messages. Chosen automatically from
+  the Windows UI language (any Chinese locale), or set `"ui_lang"` in
+  config.json to `"en"` / `"zh-hk"`.
+
+### Fixed
+- Dictation no longer clobbers the clipboard: the previous text content is
+  restored ~0.8 s after the paste (only if nothing else used the clipboard
+  meanwhile).
+
+### Changed
+- log.txt is capped at 1 MB (keeps the newest 64 KB on rotation) instead of
+  growing forever.
+- Panics are written to log.txt (a tray app has no stderr), together with a
+  version line at startup.
+- CI now enforces `cargo fmt --check`, `clippy -D warnings` and tests on
+  every push/PR; the codebase is clippy-clean.
+
 ## [0.1.3] - 2026-09-15
 
 ### Added

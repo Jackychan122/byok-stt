@@ -14,6 +14,8 @@ fn main() {
         .compile()
     {
         Ok(()) => {}
-        Err(e) => println!("cargo:warning=exe icon not embedded (toolchain lacks a resource compiler): {e}"),
+        Err(e) => println!(
+            "cargo:warning=exe icon not embedded (toolchain lacks a resource compiler): {e}"
+        ),
     }
 }

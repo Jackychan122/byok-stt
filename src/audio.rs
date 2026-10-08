@@ -14,7 +14,7 @@ pub struct Recorder {
 pub fn encode_wav(samples: &[i16], spec: hound::WavSpec) -> Result<Vec<u8>, String> {
     let sr = spec.sample_rate;
     let ch = spec.channels as u32;
-    let bits = spec.bits_per_sample as u16;
+    let bits = spec.bits_per_sample;
     let block_align = (ch * bits as u32 / 8) as u16;
     let byte_rate = sr * ch * bits as u32 / 8;
     let data_len = (samples.len() * (bits as usize / 8)) as u32;
@@ -120,8 +120,13 @@ pub fn start() -> Result<Recorder, String> {
     }
     .map_err(|e| format!("failed to open mic stream: {e}"))?;
 
-    stream.play().map_err(|e| format!("failed to start mic: {e}"))?;
-    logging::log(&format!("mic start: stream+play took {} ms", t.elapsed().as_millis()));
+    stream
+        .play()
+        .map_err(|e| format!("failed to start mic: {e}"))?;
+    logging::log(&format!(
+        "mic start: stream+play took {} ms",
+        t.elapsed().as_millis()
+    ));
 
     Ok(Recorder {
         stream,

@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::cell::Cell;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use windows::core::w;
 use windows::Win32::Foundation::{
@@ -7,9 +7,8 @@ use windows::Win32::Foundation::{
 };
 use windows::Win32::Graphics::Gdi::{
     BeginPaint, CreateCompatibleDC, CreateDIBSection, CreateSolidBrush, DeleteObject, Ellipse,
-    EndPaint, GetDC, ReleaseDC, SelectObject, DIB_RGB_COLORS,
-    BITMAPINFO, BITMAPINFOHEADER, BI_RGB, BLENDFUNCTION, HDC, PAINTSTRUCT, AC_SRC_ALPHA,
-    AC_SRC_OVER,
+    EndPaint, GetDC, ReleaseDC, SelectObject, AC_SRC_ALPHA, AC_SRC_OVER, BITMAPINFO,
+    BITMAPINFOHEADER, BI_RGB, BLENDFUNCTION, DIB_RGB_COLORS, HDC, PAINTSTRUCT,
 };
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::HiDpi::GetDpiForSystem;
@@ -17,15 +16,14 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
     GetCapture, ReleaseCapture, SetCapture, SetFocus,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    AppendMenuW, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu,
-    GetCursorPos, GetSystemMetrics, GetWindowRect, PostMessageW, RegisterClassW,
-    SetForegroundWindow, SetTimer, SetWindowPos, ShowWindow,
-    TrackPopupMenu, UpdateLayeredWindow, HMENU, MENU_ITEM_FLAGS,
-    SM_CXSCREEN, SM_CYSCREEN, SHOW_WINDOW_CMD, SW_HIDE, SW_SHOWNOACTIVATE, SWP_NOACTIVATE,
-    SWP_NOMOVE, SWP_NOSIZE, SWP_NOZORDER, TPM_NONOTIFY, TPM_RETURNCMD, TPM_RIGHTBUTTON,
-    HWND_TOPMOST, UPDATE_LAYERED_WINDOW_FLAGS, WINDOW_EX_STYLE, WINDOW_STYLE, WNDCLASSW,
-    WM_PAINT, WM_TIMER, WS_EX_LAYERED,
-    WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST, WS_POPUP,
+    AppendMenuW, CreatePopupMenu, CreateWindowExW, DefWindowProcW, DestroyMenu, GetCursorPos,
+    GetSystemMetrics, GetWindowRect, PostMessageW, RegisterClassW, SetForegroundWindow, SetTimer,
+    SetWindowPos, ShowWindow, TrackPopupMenu, UpdateLayeredWindow, HMENU, HWND_TOPMOST,
+    MENU_ITEM_FLAGS, SHOW_WINDOW_CMD, SM_CXSCREEN, SM_CYSCREEN, SWP_NOACTIVATE, SWP_NOMOVE,
+    SWP_NOSIZE, SWP_NOZORDER, SW_HIDE, SW_SHOWNOACTIVATE, TPM_NONOTIFY, TPM_RETURNCMD,
+    TPM_RIGHTBUTTON, UPDATE_LAYERED_WINDOW_FLAGS, WINDOW_EX_STYLE, WINDOW_STYLE, WM_PAINT,
+    WM_TIMER, WNDCLASSW, WS_EX_LAYERED, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_EX_TOPMOST,
+    WS_POPUP,
 };
 
 use crate::{config, settings};
@@ -48,9 +46,11 @@ static MEM_DC: AtomicUsize = AtomicUsize::new(0);
 static ZTICK: AtomicUsize = AtomicUsize::new(0);
 static BITS: AtomicUsize = AtomicUsize::new(0);
 
+/// (click point, window top-left) captured at left-button down; None = not dragging.
+type DragState = Option<((i32, i32), (i32, i32))>;
+
 thread_local! {
-    // (click point, window top-left) captured at left-button down; None = not dragging.
-    static DRAG: Cell<Option<((i32, i32), (i32, i32))>> = const { Cell::new(None) };
+    static DRAG: Cell<DragState> = const { Cell::new(None) };
     static MOVED: Cell<bool> = const { Cell::new(false) };
 }
 
@@ -100,7 +100,6 @@ pub fn init(main: HWND) {
         )
         .expect("indicator window");
         IND_HWND.store(hwnd.0 as usize, Ordering::Relaxed);
-
 
         // Persistent ARGB buffer for UpdateLayeredWindow.
         let hdc_screen = GetDC(None);
@@ -206,7 +205,7 @@ unsafe extern "system" fn ind_wnd_proc(
         // silently cover the bubble while it stays visible.
         if VISIBLE.load(Ordering::Relaxed) {
             let tick = ZTICK.fetch_add(1, Ordering::Relaxed);
-            if tick % 60 == 0 {
+            if tick.is_multiple_of(60) {
                 unsafe {
                     let _ = SetWindowPos(
                         hwnd,
@@ -221,7 +220,10 @@ unsafe extern "system" fn ind_wnd_proc(
             }
         }
         if VISIBLE.load(Ordering::Relaxed) && STATE.load(Ordering::Relaxed) == COLOR_BUSY {
-            ANGLE.store((ANGLE.load(Ordering::Relaxed) + 12) % 360, Ordering::Relaxed);
+            ANGLE.store(
+                (ANGLE.load(Ordering::Relaxed) + 12) % 360,
+                Ordering::Relaxed,
+            );
             render();
         }
         return LRESULT(0);

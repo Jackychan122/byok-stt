@@ -1,9 +1,11 @@
 use std::time::Duration;
 
 use windows::core::w;
-use windows::Win32::Foundation::{BOOL, GetLastError, ERROR_ALREADY_EXISTS, HANDLE, HINSTANCE, HWND};
+use windows::Win32::Foundation::{
+    GetLastError, BOOL, ERROR_ALREADY_EXISTS, HANDLE, HGLOBAL, HINSTANCE, HWND,
+};
 use windows::Win32::System::DataExchange::{
-    CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData,
+    CloseClipboard, EmptyClipboard, GetClipboardData, OpenClipboard, SetClipboardData,
 };
 use windows::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
 use windows::Win32::System::Ole::CF_UNICODETEXT;
@@ -34,6 +36,71 @@ pub fn set_clipboard_text(text: &str) -> Result<(), String> {
         let _ = CloseClipboard();
         r
     }
+}
+
+/// Snapshot of the clipboard text before a dictation overwrites it.
+pub struct ClipboardGuard {
+    backup: Option<String>,
+    ours: String,
+}
+
+/// Capture the current CF_UNICODETEXT clipboard content (if any) so it can be
+/// restored after the dictated text has been pasted.
+pub fn backup_clipboard() -> Option<String> {
+    read_clipboard_text()
+}
+
+pub fn clipboard_guard(ours: String, backup: Option<String>) -> ClipboardGuard {
+    ClipboardGuard { backup, ours }
+}
+
+/// Read the current clipboard text (CF_UNICODETEXT), if present.
+pub fn read_clipboard_text() -> Option<String> {
+    unsafe {
+        let opened = OpenClipboard(HWND::default()).is_ok();
+        if !opened {
+            return None;
+        }
+        let r = (|| {
+            let h = GetClipboardData(CF_UNICODETEXT.0 as u32).ok()?;
+            let ptr = GlobalLock(HGLOBAL(h.0)) as *const u16;
+            if ptr.is_null() {
+                return None;
+            }
+            let mut len = 0usize;
+            while *ptr.add(len) != 0 {
+                len += 1;
+            }
+            let s = String::from_utf16_lossy(std::slice::from_raw_parts(ptr, len));
+            let _ = GlobalUnlock(HGLOBAL(h.0));
+            Some(s)
+        })();
+        let _ = CloseClipboard();
+        r
+    }
+}
+
+/// Restore the pre-dictation clipboard shortly after the paste.
+///
+/// Dictation puts its text on the clipboard to paste it — which would clobber
+/// whatever the user had copied. Wait for the target app to read the paste,
+/// then put the old content back — but only if nobody (the user, another app,
+/// a second dictation) replaced the clipboard meanwhile.
+///
+/// Runs on a background thread: the UI thread hosts the keyboard hook and
+/// must not sleep.
+pub fn restore_clipboard_later(guard: ClipboardGuard) {
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(800));
+        let still_ours = read_clipboard_text().as_deref() == Some(guard.ours.as_str());
+        if still_ours {
+            if let Some(prev) = &guard.backup {
+                let _ = set_clipboard_text(prev);
+            }
+            // If there was no text before, keep the dictation on the
+            // clipboard — it may still be useful to the user.
+        }
+    });
 }
 
 unsafe fn set_clipboard_inner(text: &str) -> Result<(), String> {
@@ -72,12 +139,7 @@ pub fn clear_stuck_modifiers() {
                 },
             },
         };
-        let clear = [
-            mk(VK_LWIN.0),
-            mk(VK_RWIN.0),
-            mk(VK_SHIFT.0),
-            mk(VK_MENU.0),
-        ];
+        let clear = [mk(VK_LWIN.0), mk(VK_RWIN.0), mk(VK_SHIFT.0), mk(VK_MENU.0)];
         SendInput(&clear, std::mem::size_of::<INPUT>() as i32);
     }
 }
@@ -94,7 +156,11 @@ pub fn send_paste() {
                 ki: KEYBDINPUT {
                     wVk: VIRTUAL_KEY(vk),
                     wScan: 0,
-                    dwFlags: if up { KEYEVENTF_KEYUP } else { Default::default() },
+                    dwFlags: if up {
+                        KEYEVENTF_KEYUP
+                    } else {
+                        Default::default()
+                    },
                     time: 0,
                     dwExtraInfo: 0,
                 },
@@ -154,7 +220,6 @@ pub fn load_icon(bytes: &'static [u8]) -> HICON {
 pub fn null_hinstance() -> HINSTANCE {
     HINSTANCE::default()
 }
-
 
 /// HKCU\Software\Microsoft\Windows\CurrentVersion\Run — per-user
 /// autostart, no admin required. Registered command is the CURRENT exe path.
@@ -277,14 +342,13 @@ pub fn set_autostart(enable: bool) -> Result<(), String> {
     }
 }
 
-
 /// Opt out of Windows power throttling (EcoQoS / efficiency mode). Without
 /// this, a long-idle tray app gets its execution speed throttled and the
 /// first keyboard-hook callback after idle arrives late — felt as slow
 /// hotkey response. StateMask 0 = "never throttle execution speed".
 pub fn prevent_idle_throttling() {
     use windows::Win32::System::Threading::{
-        GetCurrentProcess, SetProcessInformation, ProcessPowerThrottling,
+        GetCurrentProcess, ProcessPowerThrottling, SetProcessInformation,
         PROCESS_POWER_THROTTLING_CURRENT_VERSION, PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
         PROCESS_POWER_THROTTLING_STATE,
     };

@@ -10,10 +10,9 @@ use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::Input::KeyboardAndMouse::SetFocus;
 use windows::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, GetWindowTextW,
-    PostQuitMessage, RegisterClassW, SetForegroundWindow, SetTimer, ShowWindow, TranslateMessage,
-    HMENU, MSG, SW_SHOW, WINDOW_EX_STYLE, WINDOW_STYLE, WNDCLASSW, WM_TIMER, ES_AUTOHSCROLL,
-    WS_CHILD, WS_VISIBLE,
+    CreateWindowExW, DefWindowProcW, GetMessageW, GetWindowTextW, PostQuitMessage, RegisterClassW,
+    SetForegroundWindow, SetTimer, ShowWindow, TranslateMessage, ES_AUTOHSCROLL, HMENU, MSG,
+    SW_SHOW, WINDOW_EX_STYLE, WINDOW_STYLE, WM_TIMER, WNDCLASSW, WS_CHILD, WS_VISIBLE,
 };
 
 static EDIT_HWND: AtomicUsize = AtomicUsize::new(0);
