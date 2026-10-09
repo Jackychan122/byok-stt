@@ -25,6 +25,7 @@ const IDC_PROMPT_WARN: i32 = 2013;
 const IDC_AUTOSTART: i32 = 2014;
 const IDC_S2T: i32 = 2015;
 const IDC_LANG: i32 = 2016;
+const IDC_FB_PROVIDER: i32 = 2017;
 const IDC_FB_MODEL: i32 = 2018;
 const IDC_FB_BASE: i32 = 2019;
 const IDC_FB_KEY: i32 = 2020;
@@ -172,7 +173,9 @@ pub fn open(parent: HWND) {
         RegisterClassW(&wc);
         let sw = GetSystemMetrics(SM_CXSCREEN);
         let sh = GetSystemMetrics(SM_CYSCREEN);
-        let (w, h) = (472, 560);
+        // Client layout needs 584px; +~34px for the title bar and borders
+        // (measured via GetClientRect) so the Save row is never clipped.
+        let (w, h) = (480, 618);
         let hwnd = CreateWindowExW(
             WINDOW_EX_STYLE(0),
             class,
@@ -273,6 +276,27 @@ fn apply_provider(hwnd: HWND, idx: i32) {
     set_ctl(hwnd, IDC_MODEL, default_model);
 }
 
+/// Mirror of `apply_provider` for the fallback row: preset base into the
+/// fallback endpoint edit, preset model list into the fallback model combo.
+fn apply_fb_provider(hwnd: HWND, idx: i32) {
+    let (_, base, default_model, models) =
+        PROVIDERS.get(idx as usize).copied().unwrap_or(PROVIDERS[0]);
+    if !base.is_empty() {
+        set_ctl(hwnd, IDC_FB_BASE, base);
+    }
+    unsafe {
+        if let Ok(cb) = GetDlgItem(hwnd, IDC_FB_MODEL) {
+            let _ = SendMessageW(cb, 0x014B, WPARAM(0), LPARAM(0)); // CB_RESETCONTENT
+            for m in models {
+                let wide = winutil::to_wide(m);
+                let _ = SendMessageW(cb, 0x0143, WPARAM(0), LPARAM(wide.as_ptr() as isize));
+                // CB_ADDSTRING
+            }
+        }
+    }
+    set_ctl(hwnd, IDC_FB_MODEL, default_model);
+}
+
 /// Combo helper: fill with strings and select `sel` (or set editable text).
 unsafe fn fill_combo(hwnd: HWND, id: i32, items: &[&str], sel_text: &str) {
     unsafe {
@@ -339,7 +363,7 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("STATIC"),
                 label,
-                px(12),
+                px(16),
                 px(19),
                 px(84),
                 px(16),
@@ -350,7 +374,7 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("COMBOBOX"),
                 combo_list,
-                px(100),
+                px(104),
                 px(16),
                 px(356),
                 px(180),
@@ -361,7 +385,7 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("STATIC"),
                 label,
-                px(12),
+                px(16),
                 px(51),
                 px(84),
                 px(16),
@@ -372,7 +396,7 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("EDIT"),
                 edit,
-                px(100),
+                px(104),
                 px(48),
                 px(356),
                 px(22),
@@ -383,7 +407,7 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("STATIC"),
                 label,
-                px(12),
+                px(16),
                 px(83),
                 px(84),
                 px(16),
@@ -394,7 +418,7 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("EDIT"),
                 WINDOW_STYLE(edit.0 | ES_PASSWORD as u32),
-                px(100),
+                px(104),
                 px(80),
                 px(356),
                 px(22),
@@ -405,7 +429,7 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("STATIC"),
                 label,
-                px(12),
+                px(16),
                 px(115),
                 px(84),
                 px(16),
@@ -416,7 +440,7 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("COMBOBOX"),
                 combo_edit,
-                px(100),
+                px(104),
                 px(112),
                 px(356),
                 px(180),
@@ -427,8 +451,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("STATIC"),
                 label,
-                px(12),
-                px(239),
+                px(16),
+                px(272),
                 px(84),
                 px(16),
                 0,
@@ -443,8 +467,8 @@ unsafe extern "system" fn settings_proc(
                         | WS_TABSTOP.0
                         | WS_BORDER.0,
                 ),
-                px(100),
-                px(239),
+                px(104),
+                px(272),
                 px(356),
                 px(44),
                 IDC_PROMPT,
@@ -454,8 +478,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("STATIC"),
                 label,
-                px(100),
-                px(286),
+                px(104),
+                px(319),
                 px(356),
                 px(30),
                 IDC_PROMPT_WARN,
@@ -465,8 +489,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("STATIC"),
                 label,
-                px(12),
-                px(320),
+                px(16),
+                px(353),
                 px(444),
                 px(30),
                 IDC_HINT,
@@ -477,8 +501,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("STATIC"),
                 label,
-                px(12),
-                px(356),
+                px(16),
+                px(389),
                 px(84),
                 px(16),
                 0,
@@ -488,8 +512,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("COMBOBOX"),
                 combo_list,
-                px(100),
-                px(353),
+                px(104),
+                px(386),
                 px(90),
                 px(180),
                 IDC_HK_MOD,
@@ -499,9 +523,9 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("STATIC"),
                 label,
-                px(194),
-                px(356),
-                px(12),
+                px(198),
+                px(389),
+                px(16),
                 px(16),
                 0,
                 "+",
@@ -510,8 +534,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("COMBOBOX"),
                 combo_edit,
-                px(210),
-                px(353),
+                px(214),
+                px(386),
                 px(110),
                 px(180),
                 IDC_HK_KEY,
@@ -521,8 +545,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("BUTTON"),
                 check,
-                px(100),
-                px(382),
+                px(104),
+                px(415),
                 px(170),
                 px(18),
                 IDC_ALWAYS,
@@ -532,8 +556,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("STATIC"),
                 label,
-                px(276),
-                px(382),
+                px(280),
+                px(415),
                 px(118),
                 px(16),
                 0,
@@ -543,8 +567,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("EDIT"),
                 edit,
-                px(396),
-                px(382),
+                px(400),
+                px(415),
                 px(60),
                 px(20),
                 IDC_MAXREC,
@@ -554,8 +578,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("BUTTON"),
                 check,
-                px(100),
-                px(406),
+                px(104),
+                px(439),
                 px(300),
                 px(18),
                 IDC_AUTOSTART,
@@ -565,8 +589,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("BUTTON"),
                 check,
-                px(100),
-                px(430),
+                px(104),
+                px(463),
                 px(300),
                 px(18),
                 IDC_S2T,
@@ -576,8 +600,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("BUTTON"),
                 check,
-                px(100),
-                px(454),
+                px(104),
+                px(487),
                 px(356),
                 px(18),
                 IDC_TOGGLE,
@@ -587,8 +611,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("STATIC"),
                 label,
-                px(12),
-                px(482),
+                px(16),
+                px(515),
                 px(84),
                 px(16),
                 0,
@@ -598,8 +622,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("COMBOBOX"),
                 combo_list,
-                px(100),
-                px(479),
+                px(104),
+                px(512),
                 px(180),
                 px(120),
                 IDC_LANG,
@@ -609,12 +633,34 @@ unsafe extern "system" fn settings_proc(
             // Fallback model: tried once when the primary model fails with a
             // retryable error (network / 429 / 5xx). All three optional —
             // empty base/key inherits the primary's.
+            let l_fb0 = ctl(
+                hwnd,
+                w!("STATIC"),
+                label,
+                px(16),
+                px(147),
+                px(84),
+                px(16),
+                0,
+                crate::ui::t().fb_provider,
+            );
+            let fb_prov = ctl(
+                hwnd,
+                w!("COMBOBOX"),
+                combo_list,
+                px(104),
+                px(144),
+                px(356),
+                px(180),
+                IDC_FB_PROVIDER,
+                "",
+            );
             let l_fb1 = ctl(
                 hwnd,
                 w!("STATIC"),
                 label,
-                px(12),
-                px(146),
+                px(16),
+                px(179),
                 px(84),
                 px(16),
                 0,
@@ -624,8 +670,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("COMBOBOX"),
                 combo_edit,
-                px(100),
-                px(143),
+                px(104),
+                px(176),
                 px(356),
                 px(180),
                 IDC_FB_MODEL,
@@ -635,8 +681,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("STATIC"),
                 label,
-                px(12),
-                px(178),
+                px(16),
+                px(211),
                 px(84),
                 px(16),
                 0,
@@ -646,8 +692,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("EDIT"),
                 edit,
-                px(100),
-                px(175),
+                px(104),
+                px(208),
                 px(356),
                 px(22),
                 IDC_FB_BASE,
@@ -657,8 +703,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("STATIC"),
                 label,
-                px(12),
-                px(210),
+                px(16),
+                px(243),
                 px(84),
                 px(16),
                 0,
@@ -668,8 +714,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("EDIT"),
                 WINDOW_STYLE(edit.0 | ES_PASSWORD as u32),
-                px(100),
-                px(207),
+                px(104),
+                px(240),
                 px(356),
                 px(22),
                 IDC_FB_KEY,
@@ -680,8 +726,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("BUTTON"),
                 WINDOW_STYLE(BS_DEFPUSHBUTTON as u32 | WS_TABSTOP.0),
-                px(288),
-                px(507),
+                px(292),
+                px(540),
                 px(80),
                 px(28),
                 IDC_SAVE,
@@ -691,8 +737,8 @@ unsafe extern "system" fn settings_proc(
                 hwnd,
                 w!("BUTTON"),
                 WINDOW_STYLE(WS_TABSTOP.0),
-                px(376),
-                px(507),
+                px(380),
+                px(540),
                 px(80),
                 px(28),
                 IDC_CANCEL,
@@ -707,6 +753,8 @@ unsafe extern "system" fn settings_proc(
                 key,
                 l4,
                 model,
+                l_fb0,
+                fb_prov,
                 l_fb1,
                 fb_model,
                 l_fb2,
@@ -758,10 +806,30 @@ unsafe extern "system" fn settings_proc(
             if !cfg.api_key.trim().is_empty() {
                 set_ctl(hwnd, IDC_KEY, &cfg.api_key);
             }
+            // Fallback provider: preset list, selected by matching the saved
+            // fallback endpoint; then restore any user-typed values.
+            let fb_base_saved = cfg.fallback_api_base.trim_end_matches('/').to_lowercase();
+            let fb_idx = PROVIDERS
+                .iter()
+                .position(|(_, b, _, _)| !b.is_empty() && b.to_lowercase() == fb_base_saved)
+                .unwrap_or(PROVIDERS.len() - 1) as i32;
+            for (name, _, _, _) in PROVIDERS {
+                let wide = winutil::to_wide(name);
+                let _ = SendMessageW(fb_prov, 0x0143, WPARAM(0), LPARAM(wide.as_ptr() as isize));
+                // CB_ADDSTRING
+            }
+            let _ = SendMessageW(fb_prov, 0x014E, WPARAM(fb_idx as usize), LPARAM(0)); // CB_SETCURSEL
+            apply_fb_provider(hwnd, fb_idx);
+            if !cfg.fallback_model.trim().is_empty() {
+                set_ctl(hwnd, IDC_FB_MODEL, cfg.fallback_model.trim());
+            }
+            if !cfg.fallback_api_base.trim().is_empty() {
+                set_ctl(hwnd, IDC_FB_BASE, &cfg.fallback_api_base);
+            }
+            if !cfg.fallback_api_key.trim().is_empty() {
+                set_ctl(hwnd, IDC_FB_KEY, &cfg.fallback_api_key);
+            }
             set_ctl(hwnd, IDC_PROMPT, cfg.stt_prompt.trim());
-            set_ctl(hwnd, IDC_FB_MODEL, cfg.fallback_model.trim());
-            set_ctl(hwnd, IDC_FB_BASE, cfg.fallback_api_base.trim());
-            set_ctl(hwnd, IDC_FB_KEY, cfg.fallback_api_key.trim());
             let _ = SendMessageW(
                 GetDlgItem(hwnd, IDC_TOGGLE).unwrap_or_default(),
                 0x00F1,
@@ -846,6 +914,19 @@ unsafe extern "system" fn settings_proc(
                         }
                     }
                     update_prompt_warn(hwnd);
+                    LRESULT(0)
+                }
+                (IDC_FB_PROVIDER, 1) => {
+                    // CBN_SELCHANGE: load the preset into the fallback
+                    // endpoint and model rows.
+                    unsafe {
+                        if let Ok(cb) = GetDlgItem(hwnd, IDC_FB_PROVIDER) {
+                            let sel = SendMessageW(cb, 0x0147, WPARAM(0), LPARAM(0)).0; // CB_GETCURSEL
+                            if sel >= 0 {
+                                apply_fb_provider(hwnd, sel as i32);
+                            }
+                        }
+                    }
                     LRESULT(0)
                 }
                 // Model selected or typed, base URL edited: the warning
