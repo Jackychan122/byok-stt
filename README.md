@@ -83,6 +83,8 @@ thing is a single ~1 MB executable.
 | Hotkey | Ctrl+Win | Modifier (Ctrl/Alt/Shift/Win) + key (Space, A–Z, 0–9, F1–F12) |
 | Keep bubble always visible | off | Gray idle bubble pinned on screen |
 | Max recording (s) | 120 | 5–3600; a watchdog stops long sessions |
+| Fallback model / base URL / API key | empty | Tried once when the primary model fails with a network error, 429 or 5xx (e.g. a rate-limited Whisper). Empty endpoint/key inherit the primary's. A balloon notes when the fallback produced the text. |
+| Tap-to-toggle mode | off | Tap the hotkey to start recording, tap again to stop and paste, Esc cancels. Default is hold-to-talk. |
 | Language | auto | UI text in English or Traditional Chinese (Hong Kong); follows the Windows UI language, or set `"ui_lang": "en"` / `"zh-hk"` in config.json |
 
 ## Providers & models
