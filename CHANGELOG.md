@@ -3,6 +3,18 @@
 All notable changes to byok-stt are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Configurable fallback model: when the primary model fails with a
+  retryable error (network failure, 429, 5xx), the request is retried once
+  against a fallback model (Settings: 後備模型 / 後備端點 / 後備 API 金鑰 —
+  empty endpoint/key inherit the primary's). A balloon notes which model
+  produced the text.
+- Toggle mode (Settings checkbox): tap the hotkey to start recording and
+  tap again to stop and paste; Esc cancels the take. Hold-to-talk remains
+  the default.
+
 ## [0.1.4] - 2026-10-09
 
 ### Added

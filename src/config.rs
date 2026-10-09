@@ -40,6 +40,20 @@ pub struct Config {
     /// locale -> Traditional) | "en" | "zh-hk".
     #[serde(default = "default_ui_lang")]
     pub ui_lang: String,
+    /// Optional fallback model tried once when the primary model fails with
+    /// a retryable error (network, 429, 5xx). Empty = no fallback.
+    #[serde(default)]
+    pub fallback_model: String,
+    /// Fallback endpoint; empty = same api_base as the primary model.
+    #[serde(default)]
+    pub fallback_api_base: String,
+    /// Fallback API key; empty = same key as the primary model.
+    #[serde(default)]
+    pub fallback_api_key: String,
+    /// true: tap the hotkey to start and tap again to stop (Esc cancels);
+    /// false: hold the hotkey to record (default).
+    #[serde(default)]
+    pub toggle_mode: bool,
 }
 
 fn default_api_base() -> String {
@@ -89,6 +103,10 @@ impl Default for Config {
             convert_to_traditional: false,
             ui_lang: default_ui_lang(),
             start_with_windows: false,
+            fallback_model: String::new(),
+            fallback_api_base: String::new(),
+            fallback_api_key: String::new(),
+            toggle_mode: false,
         }
     }
 }
@@ -158,6 +176,13 @@ mod tests {
         assert_eq!(c.api_base, "https://openrouter.ai/api/v1");
         assert_eq!(c.hotkey_modifier, "ctrl");
         assert_eq!(c.max_recording_secs, 120);
+        // Regression: every field needs a serde default so a config missing
+        // one field (even "model") cannot reset the API key to defaults.
+        let c: Config = serde_json::from_str(r#"{"api_key": "k"}"#).unwrap();
+        assert_eq!(c.model, "google/gemini-2.5-flash-lite");
+        assert_eq!(c.ui_lang, "auto");
+        assert!(c.fallback_model.is_empty());
+        assert!(!c.toggle_mode);
     }
 
     #[test]
@@ -174,6 +199,10 @@ mod tests {
             convert_to_traditional: true,
             start_with_windows: true,
             ui_lang: "auto".into(),
+            fallback_model: "gemini-2.5-flash-lite".into(),
+            fallback_api_base: String::new(),
+            fallback_api_key: String::new(),
+            toggle_mode: true,
         };
         let json = serde_json::to_string(&c).unwrap();
         let back: Config = serde_json::from_str(&json).unwrap();

@@ -34,6 +34,10 @@ pub struct Texts {
     pub lang_label: &'static str,
     /// Display labels for the language dropdown: [auto, en, zh-hk].
     pub lang_opts: &'static [&'static str],
+    pub fb_model: &'static str,
+    pub fb_base: &'static str,
+    pub fb_key: &'static str,
+    pub toggle: &'static str,
     pub save: &'static str,
     pub cancel: &'static str,
     // Validation / save errors
@@ -58,6 +62,10 @@ pub struct Texts {
     pub rec_error: &'static str,
     pub empty_title: &'static str,
     pub empty_msg: &'static str,
+    /// Shown when the primary model failed with a retryable error and the
+    /// configured fallback model produced the text. `{m}` = model name.
+    pub fell_back_title: &'static str,
+    pub fell_back_msg: &'static str,
     pub clip_error: &'static str,
     pub key_invalid_title: &'static str,
     pub key_invalid_msg: &'static str,
@@ -90,6 +98,10 @@ const EN: Texts = Texts {
     s2t: "Convert output to Traditional Chinese (简→繁)",
     lang_label: "Language:",
     lang_opts: &["Auto (follow Windows)", "English", "繁體中文（香港）"],
+    fb_model: "Fallback model:",
+    fb_base: "Fallback base URL:",
+    fb_key: "Fallback API key:",
+    toggle: "Tap hotkey to start/stop (Esc cancels)",
     save: "Save",
     cancel: "Cancel",
     err_maxrec: "Max recording must be a number of seconds between 5 and 3600.",
@@ -111,6 +123,8 @@ const EN: Texts = Texts {
     rec_error: "Recording error",
     empty_title: "Transcription empty",
     empty_msg: "The model returned no text.",
+    fell_back_title: "Fallback model used",
+    fell_back_msg: "\"{m}\" answered this time (the primary model failed).",
     clip_error: "Clipboard error",
     key_invalid_title: "Invalid API key",
     key_invalid_msg: "The provider rejected the API key (HTTP 401). Update it in tray > Settings.",
@@ -142,6 +156,10 @@ const ZH_HK: Texts = Texts {
     s2t: "輸出轉為繁體中文（简→繁）",
     lang_label: "介面語言：",
     lang_opts: &["自動（跟隨 Windows）", "English", "繁體中文（香港）"],
+    fb_model: "後備模型：",
+    fb_base: "後備端點：",
+    fb_key: "後備 API 金鑰：",
+    toggle: "撳一下熱鍵開始／再撳停止（Esc 取消）",
     save: "儲存",
     cancel: "取消",
     err_maxrec: "最長錄音必須係 5 至 3600 秒之間嘅數字。",
@@ -163,6 +181,8 @@ const ZH_HK: Texts = Texts {
     rec_error: "錄音錯誤",
     empty_title: "轉寫結果為空",
     empty_msg: "模型冇回傳任何文字。",
+    fell_back_title: "已改用後備模型",
+    fell_back_msg: "主模型失敗，今次由「{m}」完成轉寫。",
     clip_error: "剪貼簿錯誤",
     key_invalid_title: "API 金鑰無效",
     key_invalid_msg: "供應商拒絕咗呢條 API 金鑰（HTTP 401）。請喺托盤 > 設定更新。",
@@ -197,17 +217,7 @@ fn detect() -> u8 {
             }
         }
     };
-    crate::logging::log(&format!(
-        "ui detect: ui_lang={:?} appdata={:?} -> {}",
-        cfg.ui_lang,
-        std::env::var("APPDATA").unwrap_or_default(),
-        v
-    ));
-    if let Ok(s) = std::fs::read_to_string(config::config_dir().join("config.json")) {
-        crate::logging::log(&format!("ui detect raw config: {s:?}"));
-    } else {
-        crate::logging::log("ui detect: config.json unreadable");
-    }
+    crate::logging::log(&format!("ui lang: ui_lang={:?} -> {}", cfg.ui_lang, v));
     v
 }
 

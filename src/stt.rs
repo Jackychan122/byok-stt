@@ -3,6 +3,7 @@ use std::time::Duration;
 use base64::Engine;
 
 use crate::config;
+use crate::logging;
 
 fn endpoints(base: &str) -> (String, String) {
     let base = base.trim_end_matches('/');
@@ -23,18 +24,66 @@ pub fn uses_transcriptions_endpoint(model: &str) -> bool {
         .any(|k| m.contains(k))
 }
 
+/// A successful transcription; `fell_back_to` is `Some(model)` when the
+/// primary model failed with a retryable error and the configured fallback
+/// produced the text instead.
+pub struct Transcript {
+    pub text: String,
+    pub fell_back_to: Option<String>,
+}
+
 /// Transcribe raw WAV bytes through any OpenAI-compatible provider.
-pub fn transcribe_wav(wav: &[u8]) -> Result<String, String> {
+pub fn transcribe_wav(wav: &[u8]) -> Result<Transcript, String> {
     let cfg = config::load();
     if cfg.api_key.trim().is_empty() {
         // The "no-key:" marker lets the tray show the dedicated "API key
         // missing" balloon regardless of UI language.
         return Err(format!("no-key: {}", crate::ui::t().err_no_key));
     }
+    match route(&cfg, wav) {
+        Ok(text) => Ok(Transcript {
+            text,
+            fell_back_to: None,
+        }),
+        Err(e) => {
+            // Fallback only when configured AND the failure is the kind a
+            // different model can plausibly fix (network, 429, 5xx) — a
+            // 401/400 fails identically on any model.
+            if cfg.fallback_model.trim().is_empty() || !e.starts_with(RETRYABLE_PREFIX) {
+                return Err(e);
+            }
+            let mut fb = cfg.clone();
+            fb.model = cfg.fallback_model.trim().to_string();
+            let base = cfg.fallback_api_base.trim();
+            if !base.is_empty() {
+                fb.api_base = base.to_string();
+            }
+            let key = cfg.fallback_api_key.trim();
+            if !key.is_empty() {
+                fb.api_key = key.to_string();
+            }
+            logging::log(&format!(
+                "primary model failed ({e}); trying fallback {}",
+                fb.model
+            ));
+            match route(&fb, wav) {
+                Ok(text) => Ok(Transcript {
+                    text,
+                    fell_back_to: Some(fb.model),
+                }),
+                // The primary error is in the log; surface the fallback's —
+                // it is the request that produced the final outcome.
+                Err(e2) => Err(e2),
+            }
+        }
+    }
+}
+
+fn route(cfg: &config::Config, wav: &[u8]) -> Result<String, String> {
     let mut text = if uses_transcriptions_endpoint(&cfg.model) {
-        transcribe_transcriptions(wav, &cfg)?
+        transcribe_transcriptions(wav, cfg)?
     } else {
-        transcribe_chat(wav, &cfg)?
+        transcribe_chat(wav, cfg)?
     };
     if cfg.convert_to_traditional {
         text = crate::zh::s2t(&text);
@@ -63,6 +112,9 @@ const RETRY_BACKOFF: Duration = Duration::from_millis(500);
 
 /// Retry once on network errors, 429 and 5xx; never on client errors or
 /// malformed requests. Returns a human-friendly message on final failure.
+/// Retryable final failures carry the `retryable: ` prefix so callers (the
+/// model fallback) can distinguish "worth trying another model" from
+/// "config problem, switching models won't help".
 fn send_retry(
     host: &str,
     mut attempt: impl FnMut() -> Result<ureq::Response, ureq::Error>,
@@ -78,8 +130,14 @@ fn send_retry(
             Err(e) => return Err(http_err(host, e)),
         }
     }
-    Err(http_err(host, last.expect("one attempt ran")))
+    Err(format!(
+        "{RETRYABLE_PREFIX}{}",
+        http_err(host, last.expect("one attempt ran"))
+    ))
 }
+
+/// Marks transcription failures where a fallback model has a real chance.
+pub const RETRYABLE_PREFIX: &str = "retryable: ";
 
 fn is_retryable(e: &ureq::Error) -> bool {
     match e {
@@ -253,7 +311,7 @@ pub fn transcribe_file(path: &str) -> Result<String, String> {
         .collect::<Result<_, _>>()
         .map_err(|e| e.to_string())?;
     let wav = crate::audio::encode_wav(&samples, spec)?;
-    transcribe_wav(&wav)
+    transcribe_wav(&wav).map(|t| t.text)
 }
 
 fn truncate(s: &str, n: usize) -> &str {

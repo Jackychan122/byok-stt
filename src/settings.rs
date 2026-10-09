@@ -25,6 +25,10 @@ const IDC_PROMPT_WARN: i32 = 2013;
 const IDC_AUTOSTART: i32 = 2014;
 const IDC_S2T: i32 = 2015;
 const IDC_LANG: i32 = 2016;
+const IDC_FB_MODEL: i32 = 2018;
+const IDC_FB_BASE: i32 = 2019;
+const IDC_FB_KEY: i32 = 2020;
+const IDC_TOGGLE: i32 = 2021;
 
 use crate::{config, winutil};
 
@@ -168,7 +172,7 @@ pub fn open(parent: HWND) {
         RegisterClassW(&wc);
         let sw = GetSystemMetrics(SM_CXSCREEN);
         let sh = GetSystemMetrics(SM_CYSCREEN);
-        let (w, h) = (472, 462);
+        let (w, h) = (472, 560);
         let hwnd = CreateWindowExW(
             WINDOW_EX_STYLE(0),
             class,
@@ -424,7 +428,7 @@ unsafe extern "system" fn settings_proc(
                 w!("STATIC"),
                 label,
                 px(12),
-                px(146),
+                px(239),
                 px(84),
                 px(16),
                 0,
@@ -440,7 +444,7 @@ unsafe extern "system" fn settings_proc(
                         | WS_BORDER.0,
                 ),
                 px(100),
-                px(143),
+                px(239),
                 px(356),
                 px(44),
                 IDC_PROMPT,
@@ -451,7 +455,7 @@ unsafe extern "system" fn settings_proc(
                 w!("STATIC"),
                 label,
                 px(100),
-                px(190),
+                px(286),
                 px(356),
                 px(30),
                 IDC_PROMPT_WARN,
@@ -462,7 +466,7 @@ unsafe extern "system" fn settings_proc(
                 w!("STATIC"),
                 label,
                 px(12),
-                px(224),
+                px(320),
                 px(444),
                 px(30),
                 IDC_HINT,
@@ -474,7 +478,7 @@ unsafe extern "system" fn settings_proc(
                 w!("STATIC"),
                 label,
                 px(12),
-                px(260),
+                px(356),
                 px(84),
                 px(16),
                 0,
@@ -485,7 +489,7 @@ unsafe extern "system" fn settings_proc(
                 w!("COMBOBOX"),
                 combo_list,
                 px(100),
-                px(257),
+                px(353),
                 px(90),
                 px(180),
                 IDC_HK_MOD,
@@ -496,7 +500,7 @@ unsafe extern "system" fn settings_proc(
                 w!("STATIC"),
                 label,
                 px(194),
-                px(260),
+                px(356),
                 px(12),
                 px(16),
                 0,
@@ -507,7 +511,7 @@ unsafe extern "system" fn settings_proc(
                 w!("COMBOBOX"),
                 combo_edit,
                 px(210),
-                px(257),
+                px(353),
                 px(110),
                 px(180),
                 IDC_HK_KEY,
@@ -518,7 +522,7 @@ unsafe extern "system" fn settings_proc(
                 w!("BUTTON"),
                 check,
                 px(100),
-                px(286),
+                px(382),
                 px(170),
                 px(18),
                 IDC_ALWAYS,
@@ -529,7 +533,7 @@ unsafe extern "system" fn settings_proc(
                 w!("STATIC"),
                 label,
                 px(276),
-                px(286),
+                px(382),
                 px(118),
                 px(16),
                 0,
@@ -540,7 +544,7 @@ unsafe extern "system" fn settings_proc(
                 w!("EDIT"),
                 edit,
                 px(396),
-                px(286),
+                px(382),
                 px(60),
                 px(20),
                 IDC_MAXREC,
@@ -551,7 +555,7 @@ unsafe extern "system" fn settings_proc(
                 w!("BUTTON"),
                 check,
                 px(100),
-                px(310),
+                px(406),
                 px(300),
                 px(18),
                 IDC_AUTOSTART,
@@ -562,18 +566,29 @@ unsafe extern "system" fn settings_proc(
                 w!("BUTTON"),
                 check,
                 px(100),
-                px(334),
+                px(430),
                 px(300),
                 px(18),
                 IDC_S2T,
                 crate::ui::t().s2t,
+            );
+            let toggle = ctl(
+                hwnd,
+                w!("BUTTON"),
+                check,
+                px(100),
+                px(454),
+                px(356),
+                px(18),
+                IDC_TOGGLE,
+                crate::ui::t().toggle,
             );
             let l_lang = ctl(
                 hwnd,
                 w!("STATIC"),
                 label,
                 px(12),
-                px(358),
+                px(482),
                 px(84),
                 px(16),
                 0,
@@ -584,10 +599,80 @@ unsafe extern "system" fn settings_proc(
                 w!("COMBOBOX"),
                 combo_list,
                 px(100),
-                px(355),
+                px(479),
                 px(180),
                 px(120),
                 IDC_LANG,
+                "",
+            );
+
+            // Fallback model: tried once when the primary model fails with a
+            // retryable error (network / 429 / 5xx). All three optional —
+            // empty base/key inherits the primary's.
+            let l_fb1 = ctl(
+                hwnd,
+                w!("STATIC"),
+                label,
+                px(12),
+                px(146),
+                px(84),
+                px(16),
+                0,
+                crate::ui::t().fb_model,
+            );
+            let fb_model = ctl(
+                hwnd,
+                w!("COMBOBOX"),
+                combo_edit,
+                px(100),
+                px(143),
+                px(356),
+                px(180),
+                IDC_FB_MODEL,
+                "",
+            );
+            let l_fb2 = ctl(
+                hwnd,
+                w!("STATIC"),
+                label,
+                px(12),
+                px(178),
+                px(84),
+                px(16),
+                0,
+                crate::ui::t().fb_base,
+            );
+            let fb_base = ctl(
+                hwnd,
+                w!("EDIT"),
+                edit,
+                px(100),
+                px(175),
+                px(356),
+                px(22),
+                IDC_FB_BASE,
+                "",
+            );
+            let l_fb3 = ctl(
+                hwnd,
+                w!("STATIC"),
+                label,
+                px(12),
+                px(210),
+                px(84),
+                px(16),
+                0,
+                crate::ui::t().fb_key,
+            );
+            let fb_key = ctl(
+                hwnd,
+                w!("EDIT"),
+                WINDOW_STYLE(edit.0 | ES_PASSWORD as u32),
+                px(100),
+                px(207),
+                px(356),
+                px(22),
+                IDC_FB_KEY,
                 "",
             );
 
@@ -596,7 +681,7 @@ unsafe extern "system" fn settings_proc(
                 w!("BUTTON"),
                 WINDOW_STYLE(BS_DEFPUSHBUTTON as u32 | WS_TABSTOP.0),
                 px(288),
-                px(384),
+                px(507),
                 px(80),
                 px(28),
                 IDC_SAVE,
@@ -607,7 +692,7 @@ unsafe extern "system" fn settings_proc(
                 w!("BUTTON"),
                 WINDOW_STYLE(WS_TABSTOP.0),
                 px(376),
-                px(384),
+                px(507),
                 px(80),
                 px(28),
                 IDC_CANCEL,
@@ -622,6 +707,12 @@ unsafe extern "system" fn settings_proc(
                 key,
                 l4,
                 model,
+                l_fb1,
+                fb_model,
+                l_fb2,
+                fb_base,
+                l_fb3,
+                fb_key,
                 l_prompt,
                 prompt,
                 prompt_warn,
@@ -635,6 +726,7 @@ unsafe extern "system" fn settings_proc(
                 maxrec,
                 autostart,
                 s2t,
+                toggle,
                 l_lang,
                 lang,
                 save,
@@ -667,6 +759,15 @@ unsafe extern "system" fn settings_proc(
                 set_ctl(hwnd, IDC_KEY, &cfg.api_key);
             }
             set_ctl(hwnd, IDC_PROMPT, cfg.stt_prompt.trim());
+            set_ctl(hwnd, IDC_FB_MODEL, cfg.fallback_model.trim());
+            set_ctl(hwnd, IDC_FB_BASE, cfg.fallback_api_base.trim());
+            set_ctl(hwnd, IDC_FB_KEY, cfg.fallback_api_key.trim());
+            let _ = SendMessageW(
+                GetDlgItem(hwnd, IDC_TOGGLE).unwrap_or_default(),
+                0x00F1,
+                WPARAM(cfg.toggle_mode as usize * 2),
+                LPARAM(0),
+            );
 
             // Hotkey combos (macOS "cmd" shows as Win; parser maps them together).
             let mod_disp = if cfg.hotkey_modifier.eq_ignore_ascii_case("cmd") {
@@ -808,6 +909,10 @@ fn on_save(hwnd: HWND) {
     let always = checkbox_checked(hwnd, IDC_ALWAYS);
     let autostart = checkbox_checked(hwnd, IDC_AUTOSTART);
     let s2t = checkbox_checked(hwnd, IDC_S2T);
+    let toggle = checkbox_checked(hwnd, IDC_TOGGLE);
+    let fb_model = read_ctl(hwnd, IDC_FB_MODEL);
+    let fb_base = read_ctl(hwnd, IDC_FB_BASE).trim().to_string();
+    let fb_key = read_ctl(hwnd, IDC_FB_KEY);
     let max_secs = read_ctl(hwnd, IDC_MAXREC).trim().parse::<u32>();
     let lang_idx = unsafe {
         SendMessageW(
@@ -899,6 +1004,10 @@ fn on_save(hwnd: HWND) {
         max_recording_secs: max_secs,
         convert_to_traditional: s2t,
         start_with_windows: autostart,
+        toggle_mode: toggle,
+        fallback_model: fb_model.trim().to_string(),
+        fallback_api_base: fb_base,
+        fallback_api_key: fb_key,
     };
     if let Err(e) = winutil::set_autostart(autostart) {
         unsafe {

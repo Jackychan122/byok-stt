@@ -27,6 +27,8 @@ const WMAPP_STOP: u32 = WM_APP + 2;
 const WMAPP_RESULT: u32 = WM_APP + 3;
 const WMAPP_RELOAD: u32 = WM_APP + 4;
 const WMAPP_PING: u32 = WM_APP + 5;
+/// Toggle mode: Esc pressed during a recording session discards the take.
+const WMAPP_CANCEL: u32 = WM_APP + 6;
 const TIMER_MAX_REC: usize = 1;
 const MIN_REC: Duration = Duration::from_millis(300);
 static MAX_REC_MS: AtomicUsize = AtomicUsize::new(120_000);
@@ -46,6 +48,8 @@ static MOD_DOWN: AtomicBool = AtomicBool::new(false);
 static KEY_DOWN: AtomicBool = AtomicBool::new(false);
 static IN_SESSION: AtomicBool = AtomicBool::new(false);
 static SWALLOW_WIN: AtomicBool = AtomicBool::new(false);
+/// toggle_mode config: tap hotkey to start, tap again to stop, Esc cancels.
+static TOGGLE_MODE: AtomicBool = AtomicBool::new(false);
 
 enum Phase {
     Idle,
@@ -188,10 +192,38 @@ extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESU
                 SWALLOW_WIN.store(crate::hotkey::uses_win(mod_id, key_vk), Ordering::Relaxed);
                 logging::log("hotkey: session start");
                 post_main(WMAPP_START);
-            } else if IN_SESSION.load(Ordering::Relaxed) && !down && (is_mod || is_key) {
+            } else if IN_SESSION.load(Ordering::Relaxed)
+                && TOGGLE_MODE.load(Ordering::Relaxed)
+                && down
+                && MOD_DOWN.load(Ordering::Relaxed)
+                && KEY_DOWN.load(Ordering::Relaxed)
+            {
+                // Toggle mode: tapping the hotkey combo again stops and
+                // pastes. Key-ups do NOT end the session (unlike hold mode).
+                IN_SESSION.store(false, Ordering::Relaxed);
+                SWALLOW_WIN.store(crate::hotkey::uses_win(mod_id, key_vk), Ordering::Relaxed);
+                logging::log("hotkey: session stop (toggle tap)");
+                post_main(WMAPP_STOP);
+            } else if IN_SESSION.load(Ordering::Relaxed)
+                && !TOGGLE_MODE.load(Ordering::Relaxed)
+                && !down
+                && (is_mod || is_key)
+            {
                 IN_SESSION.store(false, Ordering::Relaxed);
                 logging::log("hotkey: session end (keys released)");
                 post_main(WMAPP_STOP);
+            }
+
+            // Toggle mode: Esc during a recording discards the take. Swallow
+            // it completely so the focused app never sees the key.
+            let esc = vk == 0x1B; // VK_ESCAPE
+            if IN_SESSION.load(Ordering::Relaxed) && TOGGLE_MODE.load(Ordering::Relaxed) && esc {
+                if down {
+                    IN_SESSION.store(false, Ordering::Relaxed);
+                    logging::log("hotkey: session cancelled (Esc)");
+                    post_main(WMAPP_CANCEL);
+                }
+                return LRESULT(1);
             }
 
             // While a dictate session is active, hide the Win key from the OS
@@ -223,9 +255,10 @@ pub fn reload_settings() {
         Ordering::Relaxed,
     );
     indicator::set_always_visible(cfg.bubble_always_visible);
+    TOGGLE_MODE.store(cfg.toggle_mode, Ordering::Relaxed);
     logging::log(&format!(
-        "hotkey reloaded: {}+{}",
-        cfg.hotkey_modifier, cfg.hotkey_key
+        "hotkey reloaded: {}+{} (toggle: {})",
+        cfg.hotkey_modifier, cfg.hotkey_key, cfg.toggle_mode
     ));
 }
 
@@ -286,6 +319,10 @@ unsafe extern "system" fn wnd_proc(
             crate::ui::reload();
             LRESULT(0)
         }
+        WMAPP_CANCEL => {
+            on_cancel(hwnd);
+            LRESULT(0)
+        }
         WMAPP_PING => {
             balloon(
                 hwnd,
@@ -319,6 +356,12 @@ fn on_timer(hwnd: HWND) {
     }
     if now_millis().saturating_sub(started) >= MAX_REC_MS.load(Ordering::Relaxed) as u64 {
         logging::log("watchdog: max recording time reached, stopping");
+        // The hook only clears IN_SESSION on key events; in toggle mode a
+        // timer stop happens without one, so clear it here or the next tap
+        // would be swallowed as a redundant stop.
+        if TOGGLE_MODE.load(Ordering::Relaxed) {
+            IN_SESSION.store(false, Ordering::Relaxed);
+        }
         on_stop(hwnd);
     }
 }
@@ -376,7 +419,7 @@ fn on_stop(hwnd: HWND) {
                         let main = MAIN_HWND.load(Ordering::Relaxed);
                         std::thread::spawn(move || {
                             let result = stt::transcribe_wav(&wav);
-                            let raw = Box::into_raw(Box::new(result));
+                            let raw = Box::into_raw(Box::new(result)) as *mut stt::Transcript;
                             let _ = PostMessageW(
                                 HWND(main as *mut core::ffi::c_void),
                                 WMAPP_RESULT,
@@ -393,11 +436,30 @@ fn on_stop(hwnd: HWND) {
     }
 }
 
+/// Toggle mode: Esc was pressed — stop the recorder and throw the take away
+/// without transcribing or pasting anything.
+fn on_cancel(hwnd: HWND) {
+    let taken = PHASE.with(|p| std::mem::replace(&mut *p.borrow_mut(), Phase::Idle));
+    if let Phase::Recording { recorder } = taken {
+        SESSION_START_MS.store(0, Ordering::Relaxed);
+        unsafe {
+            let _ = KillTimer(hwnd, TIMER_MAX_REC);
+        }
+        if let Err(e) = recorder.stop() {
+            logging::log(&format!("record stop error on cancel: {e}"));
+        }
+        set_icon(hwnd, IDLE_ICO, "idle");
+        indicator::hide();
+        winutil::clear_stuck_modifiers();
+        logging::log("recording cancelled (toggle Esc)");
+    }
+}
+
 fn on_result(hwnd: HWND, lparam: LPARAM) {
     if lparam.0 == 0 {
         return;
     }
-    let result = unsafe { Box::from_raw(lparam.0 as *mut Result<String, String>) };
+    let result = unsafe { Box::from_raw(lparam.0 as *mut Result<stt::Transcript, String>) };
     set_icon(hwnd, IDLE_ICO, "idle");
     indicator::hide();
     PHASE.with(|p| *p.borrow_mut() = Phase::Idle);
@@ -405,8 +467,8 @@ fn on_result(hwnd: HWND, lparam: LPARAM) {
     // physical key-up (flyout, focus switch), Win is still logically held.
     winutil::clear_stuck_modifiers();
     match *result {
-        Ok(text) => {
-            if text.is_empty() {
+        Ok(t) => {
+            if t.text.is_empty() {
                 balloon(
                     hwnd,
                     crate::ui::t().empty_title,
@@ -415,12 +477,22 @@ fn on_result(hwnd: HWND, lparam: LPARAM) {
                 );
                 return;
             }
+            if let Some(model) = &t.fell_back_to {
+                // Tell the user the primary model failed and a different one
+                // produced this text — quality may differ.
+                balloon(
+                    hwnd,
+                    crate::ui::t().fell_back_title,
+                    &crate::ui::t().fell_back_msg.replace("{m}", model),
+                    false,
+                );
+            }
             let backup = winutil::backup_clipboard();
-            match winutil::set_clipboard_text(&text) {
+            match winutil::set_clipboard_text(&t.text) {
                 Ok(()) => {
                     std::thread::sleep(Duration::from_millis(60));
                     winutil::send_paste();
-                    winutil::restore_clipboard_later(winutil::clipboard_guard(text, backup));
+                    winutil::restore_clipboard_later(winutil::clipboard_guard(t.text, backup));
                 }
                 Err(e) => {
                     logging::log(&format!("clipboard error: {e}"));
