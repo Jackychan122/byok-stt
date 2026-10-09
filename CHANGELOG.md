@@ -3,32 +3,40 @@
 All notable changes to byok-stt are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/); versions follow [SemVer](https://semver.org/).
 
-## [Unreleased]
-
-### Changed
-- First-press responsiveness after boot or long idle: the default microphone
-  is resolved once at app launch (`prewarm`) instead of on every hotkey
-  press, and the process opts out of Windows power throttling (EcoQoS) so an
-  idle tray app is never slowed down before the first dictation.
+## [0.1.4] - 2026-10-09
 
 ### Added
 - UI localization: Traditional Chinese (Hong Kong) interface — settings
   window, tray menu, balloons and error messages. Chosen automatically from
   the Windows UI language (any Chinese locale), or set `"ui_lang"` in
   config.json to `"en"` / `"zh-hk"`.
-
-### Fixed
-- Dictation no longer clobbers the clipboard: the previous text content is
-  restored ~0.8 s after the paste (only if nothing else used the clipboard
-  meanwhile).
+- Language switcher in Settings (介面語言): Auto (follow Windows) /
+  English / 繁體中文（香港）; applies to the tray immediately after saving.
 
 ### Changed
+- First-press responsiveness after boot or long idle: the default microphone
+  is resolved once at app launch (`prewarm`) instead of on every hotkey
+  press, and the process opts out of Windows power throttling (EcoQoS) so an
+  idle tray app is never slowed down before the first dictation.
 - log.txt is capped at 1 MB (keeps the newest 64 KB on rotation) instead of
   growing forever.
 - Panics are written to log.txt (a tray app has no stderr), together with a
   version line at startup.
 - CI now enforces `cargo fmt --check`, `clippy -D warnings` and tests on
   every push/PR; the codebase is clippy-clean.
+
+### Fixed
+- Garbled text (e.g. 模型 label showing random characters) in the settings
+  window: a helper returned a pointer into a buffer it dropped on return;
+  the buffer is now owned by the control-creation call itself.
+- A config.json missing a single field no longer resets every setting
+  (including the API key) to defaults — `model` now has a fallback too.
+- Win+S (and other Win combinations) leaking to Windows while holding the
+  dictation hotkey: the keyboard hook thread no longer stalls past the OS
+  hook timeout, so the OS never silently bypasses the hook.
+- Dictation no longer clobbers the clipboard: the previous text content is
+  restored ~0.8 s after the paste (only if nothing else used the clipboard
+  meanwhile).
 
 ## [0.1.3] - 2026-09-15
 
