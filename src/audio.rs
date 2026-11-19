@@ -147,9 +147,9 @@ impl Recorder {
             .map_err(|e| format!("buffer poisoned: {e}"))?
             .clone();
         let dur = self.started.elapsed();
-        if samples.is_empty() {
-            return Err("no audio captured".into());
-        }
+        // An empty take is returned as a bare-header WAV (44 bytes) — the
+        // caller decides by duration whether that is an ignorable tap or a
+        // mic failure, so short taps never raise a scary error.
         let spec = hound::WavSpec {
             channels: self.channels,
             sample_rate: self.sample_rate,

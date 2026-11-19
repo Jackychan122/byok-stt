@@ -164,6 +164,44 @@ pub fn run() {
     }
 }
 
+/// What the keyboard hook should do with an event, given the tracked combo
+/// state. Kept pure so the edge-triggered session logic is unit-testable.
+#[derive(Debug, PartialEq, Eq)]
+enum HookAction {
+    /// Fresh combo press while idle — start a session.
+    Start,
+    /// Toggle mode: fresh combo press mid-session — stop and paste.
+    StopTap,
+    /// Hold mode: a combo key was released — stop.
+    StopRelease,
+    None,
+}
+
+/// Windows auto-repeat re-sends WM_KEYDOWN for a held key (~30 Hz), so
+/// session toggling must key off fresh down-transitions only — repeating
+/// events would otherwise flap start/stop for as long as the combo is held.
+fn hook_action(
+    in_session: bool,
+    toggle_mode: bool,
+    fresh_press: bool,
+    combo_down: bool,
+    combo_release: bool,
+) -> HookAction {
+    if fresh_press && combo_down {
+        if !in_session {
+            HookAction::Start
+        } else if toggle_mode {
+            HookAction::StopTap
+        } else {
+            HookAction::None
+        }
+    } else if in_session && !toggle_mode && combo_release {
+        HookAction::StopRelease
+    } else {
+        HookAction::None
+    }
+}
+
 extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     unsafe {
         if code >= 0 && lparam.0 != 0 {
@@ -176,6 +214,11 @@ extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESU
             let is_mod = crate::hotkey::is_modifier_vk(mod_id, vk);
             let is_key = crate::hotkey::is_key_vk(key_vk, vk);
 
+            // A fresh press is the first keydown of a combo key after it was
+            // up. Windows auto-repeat re-sends WM_KEYDOWN (~30 Hz) while the
+            // key stays physically held; repeats must never toggle a session.
+            let fresh_press = (is_mod && down && !MOD_DOWN.load(Ordering::Relaxed))
+                || (is_key && down && !KEY_DOWN.load(Ordering::Relaxed));
             if is_mod {
                 MOD_DOWN.store(down, Ordering::Relaxed);
             }
@@ -183,35 +226,33 @@ extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESU
                 KEY_DOWN.store(down, Ordering::Relaxed);
             }
 
-            if !IN_SESSION.load(Ordering::Relaxed)
-                && down
-                && MOD_DOWN.load(Ordering::Relaxed)
-                && KEY_DOWN.load(Ordering::Relaxed)
-            {
-                IN_SESSION.store(true, Ordering::Relaxed);
-                SWALLOW_WIN.store(crate::hotkey::uses_win(mod_id, key_vk), Ordering::Relaxed);
-                logging::log("hotkey: session start");
-                post_main(WMAPP_START);
-            } else if IN_SESSION.load(Ordering::Relaxed)
-                && TOGGLE_MODE.load(Ordering::Relaxed)
-                && down
-                && MOD_DOWN.load(Ordering::Relaxed)
-                && KEY_DOWN.load(Ordering::Relaxed)
-            {
+            match hook_action(
+                IN_SESSION.load(Ordering::Relaxed),
+                TOGGLE_MODE.load(Ordering::Relaxed),
+                fresh_press,
+                MOD_DOWN.load(Ordering::Relaxed) && KEY_DOWN.load(Ordering::Relaxed),
+                !down && (is_mod || is_key),
+            ) {
+                HookAction::Start => {
+                    IN_SESSION.store(true, Ordering::Relaxed);
+                    SWALLOW_WIN.store(crate::hotkey::uses_win(mod_id, key_vk), Ordering::Relaxed);
+                    logging::log("hotkey: session start");
+                    post_main(WMAPP_START);
+                }
                 // Toggle mode: tapping the hotkey combo again stops and
                 // pastes. Key-ups do NOT end the session (unlike hold mode).
-                IN_SESSION.store(false, Ordering::Relaxed);
-                SWALLOW_WIN.store(crate::hotkey::uses_win(mod_id, key_vk), Ordering::Relaxed);
-                logging::log("hotkey: session stop (toggle tap)");
-                post_main(WMAPP_STOP);
-            } else if IN_SESSION.load(Ordering::Relaxed)
-                && !TOGGLE_MODE.load(Ordering::Relaxed)
-                && !down
-                && (is_mod || is_key)
-            {
-                IN_SESSION.store(false, Ordering::Relaxed);
-                logging::log("hotkey: session end (keys released)");
-                post_main(WMAPP_STOP);
+                HookAction::StopTap => {
+                    IN_SESSION.store(false, Ordering::Relaxed);
+                    SWALLOW_WIN.store(crate::hotkey::uses_win(mod_id, key_vk), Ordering::Relaxed);
+                    logging::log("hotkey: session stop (toggle tap)");
+                    post_main(WMAPP_STOP);
+                }
+                HookAction::StopRelease => {
+                    IN_SESSION.store(false, Ordering::Relaxed);
+                    logging::log("hotkey: session end (keys released)");
+                    post_main(WMAPP_STOP);
+                }
+                HookAction::None => {}
             }
 
             // Toggle mode: Esc during a recording discards the take. Swallow
@@ -409,10 +450,20 @@ fn on_stop(hwnd: HWND) {
                 }
                 Ok((wav, dur)) => {
                     if dur < MIN_REC {
-                        // accidental tap, ignore
+                        // Accidental tap — ignore even when nothing was
+                        // captured yet (the stream may not have delivered
+                        // its first callback).
                         set_icon(hwnd, IDLE_ICO, "idle");
                         indicator::hide();
                         winutil::clear_stuck_modifiers();
+                    } else if wav.len() <= 44 {
+                        // 44 bytes = bare WAV header: held long enough but
+                        // the mic stream never delivered a single sample —
+                        // a device problem, unlike a short tap.
+                        logging::log("record stop error: no audio captured");
+                        set_icon(hwnd, IDLE_ICO, "idle");
+                        indicator::hide();
+                        balloon(hwnd, crate::ui::t().mic_error, "no audio captured", true);
                     } else {
                         set_icon(hwnd, BUSY_ICO, "transcribing");
                         indicator::show_busy();
@@ -650,5 +701,75 @@ fn balloon(hwnd: HWND, title: &str, msg: &str, error: bool) {
 fn set_utf16(arr: &mut [u16], s: &str) {
     for (i, c) in s.encode_utf16().take(arr.len() - 1).enumerate() {
         arr[i] = c;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fresh_combo_press_starts_when_idle() {
+        assert_eq!(
+            hook_action(false, true, true, true, false),
+            HookAction::Start
+        );
+        assert_eq!(
+            hook_action(false, false, true, true, false),
+            HookAction::Start
+        );
+    }
+
+    #[test]
+    fn auto_repeat_never_toggles_a_session() {
+        // Held combo, repeat events (not fresh): the pre-fix storm bug.
+        assert_eq!(
+            hook_action(false, true, false, true, false),
+            HookAction::None
+        );
+        assert_eq!(
+            hook_action(true, true, false, true, false),
+            HookAction::None
+        );
+    }
+
+    #[test]
+    fn fresh_tap_mid_session_stops_only_in_toggle_mode() {
+        assert_eq!(
+            hook_action(true, true, true, true, false),
+            HookAction::StopTap
+        );
+        // Hold mode ignores a re-press mid-session.
+        assert_eq!(
+            hook_action(true, false, true, true, false),
+            HookAction::None
+        );
+    }
+
+    #[test]
+    fn hold_mode_stops_on_release_only() {
+        assert_eq!(
+            hook_action(true, false, false, false, true),
+            HookAction::StopRelease
+        );
+        // Toggle mode ignores key release; idle ignores it too.
+        assert_eq!(
+            hook_action(true, true, false, false, true),
+            HookAction::None
+        );
+        assert_eq!(
+            hook_action(false, false, false, false, true),
+            HookAction::None
+        );
+    }
+
+    #[test]
+    fn incomplete_combo_press_does_nothing() {
+        // Fresh trigger keydown while the modifier is no longer held must
+        // not start a session.
+        assert_eq!(
+            hook_action(false, true, true, false, false),
+            HookAction::None
+        );
     }
 }

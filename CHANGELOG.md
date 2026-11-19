@@ -5,6 +5,8 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/); versions
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-11-20
+
 ### Added
 - Configurable fallback model: when the primary model fails with a
   retryable error (network failure, 429, 5xx), the request is retried once
@@ -14,6 +16,21 @@ Format loosely follows [Keep a Changelog](https://keepachangelog.com/); versions
 - Toggle mode (Settings checkbox): tap the hotkey to start recording and
   tap again to stop and paste; Esc cancels the take. Hold-to-talk remains
   the default.
+
+### Fixed
+- Toggle mode no longer flaps while the hotkey is held: Windows auto-repeat
+  re-sends the keydown (~30 Hz) and every repeat event toggled the session,
+  producing start/stop storms, "no audio captured" error balloons and a
+  flashing tray icon. Sessions now toggle only on fresh key-down
+  transitions; repeats are ignored.
+- Takes shorter than the 300 ms minimum are silently ignored even when no
+  audio callback has fired yet; the "no audio captured" balloon is now
+  reserved for recordings that were long enough but captured nothing (mic
+  problem).
+- log.txt rotation actually works: the tail-keep ran on the append-only log
+  handle, where read/truncate access is denied, so the 1 MB cap never
+  applied (one log had grown to 3.3 MB). Rotation now uses a temporary
+  read+write handle.
 
 ## [0.1.4] - 2026-10-09
 
